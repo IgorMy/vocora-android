@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -28,10 +29,10 @@ fun ShizukuStatusScreen(modifier: Modifier = Modifier) {
         status = state.status,
         onPrimaryAction = {
             when (state.status) {
-                ShizukuStatus.NotInstalled -> openShizukuWebsite(context)
+                ShizukuStatus.NotInstalled -> openUrl(context, SHIZUKU_WEBSITE)
                 // Shizuku may have been uninstalled since the last check.
-                ShizukuStatus.NotRunning -> if (!openShizukuApp(context)) state.refresh()
-                ShizukuStatus.Running -> Unit
+                ShizukuStatus.CannotStart -> if (!openShizukuApp(context)) state.refresh()
+                ShizukuStatus.Starting, ShizukuStatus.Running -> Unit
             }
         },
         onRetry = state::refresh,
@@ -48,18 +49,20 @@ private fun ShizukuStatusContent(
 ) {
     val titleRes = when (status) {
         ShizukuStatus.NotInstalled -> R.string.shizuku_not_installed_title
-        ShizukuStatus.NotRunning -> R.string.shizuku_not_running_title
+        ShizukuStatus.Starting -> R.string.shizuku_starting_title
         ShizukuStatus.Running -> R.string.shizuku_running_title
+        ShizukuStatus.CannotStart -> R.string.shizuku_cannot_start_title
     }
     val messageRes = when (status) {
         ShizukuStatus.NotInstalled -> R.string.shizuku_not_installed_message
-        ShizukuStatus.NotRunning -> R.string.shizuku_not_running_message
+        ShizukuStatus.Starting -> R.string.shizuku_starting_message
         ShizukuStatus.Running -> R.string.shizuku_running_message
+        ShizukuStatus.CannotStart -> R.string.shizuku_cannot_start_message
     }
     val actionRes = when (status) {
         ShizukuStatus.NotInstalled -> R.string.shizuku_action_install
-        ShizukuStatus.NotRunning -> R.string.shizuku_action_open
-        ShizukuStatus.Running -> null
+        ShizukuStatus.CannotStart -> R.string.shizuku_action_open
+        ShizukuStatus.Starting, ShizukuStatus.Running -> null
     }
 
     Column(
@@ -72,10 +75,10 @@ private fun ShizukuStatusContent(
         Text(
             text = stringResource(titleRes),
             style = MaterialTheme.typography.headlineSmall,
-            color = if (status == ShizukuStatus.Running) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.error
+            color = when (status) {
+                ShizukuStatus.NotInstalled, ShizukuStatus.CannotStart -> MaterialTheme.colorScheme.error
+                ShizukuStatus.Starting -> MaterialTheme.colorScheme.onSurface
+                ShizukuStatus.Running -> MaterialTheme.colorScheme.primary
             },
         )
         Text(
@@ -83,8 +86,15 @@ private fun ShizukuStatusContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (status == ShizukuStatus.Starting) {
+            CircularProgressIndicator()
+        }
         if (actionRes != null) {
             Button(onClick = onPrimaryAction) { Text(stringResource(actionRes)) }
+        }
+        // Once Shizuku is installed the screen follows the service on its own, so retrying is only
+        // useful while the app is still missing.
+        if (status == ShizukuStatus.NotInstalled) {
             OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.shizuku_action_retry)) }
         }
     }
@@ -93,23 +103,28 @@ private fun ShizukuStatusContent(
 @Preview(showBackground = true)
 @Composable
 private fun ShizukuNotInstalledPreview() {
-    VocoraTheme {
-        ShizukuStatusContent(ShizukuStatus.NotInstalled, onPrimaryAction = {}, onRetry = {})
-    }
+    VocoraTheme { ShizukuStatusPreview(ShizukuStatus.NotInstalled) }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun ShizukuNotRunningPreview() {
-    VocoraTheme {
-        ShizukuStatusContent(ShizukuStatus.NotRunning, onPrimaryAction = {}, onRetry = {})
-    }
+private fun ShizukuStartingPreview() {
+    VocoraTheme { ShizukuStatusPreview(ShizukuStatus.Starting) }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ShizukuCannotStartPreview() {
+    VocoraTheme { ShizukuStatusPreview(ShizukuStatus.CannotStart) }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun ShizukuRunningPreview() {
-    VocoraTheme {
-        ShizukuStatusContent(ShizukuStatus.Running, onPrimaryAction = {}, onRetry = {})
-    }
+    VocoraTheme { ShizukuStatusPreview(ShizukuStatus.Running) }
+}
+
+@Composable
+private fun ShizukuStatusPreview(status: ShizukuStatus) {
+    ShizukuStatusContent(status, onPrimaryAction = {}, onRetry = {})
 }

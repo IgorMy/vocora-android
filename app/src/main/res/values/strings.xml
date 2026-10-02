@@ -4,10 +4,12 @@
     <string name="shizuku_title">Shizuku</string>
     <string name="shizuku_not_installed_title">Shizuku is not installed</string>
     <string name="shizuku_not_installed_message">Vocora needs Shizuku to work. Install it from shizuku.rikka.app and start the service.</string>
-    <string name="shizuku_not_running_title">Shizuku is not running</string>
-    <string name="shizuku_not_running_message">Shizuku is installed but its service is stopped. Open Shizuku and start it, then come back.</string>
+    <string name="shizuku_starting_title">Starting Shizuku…</string>
+    <string name="shizuku_starting_message">Shizuku is installed but its service is down. Trying to start it.</string>
     <string name="shizuku_running_title">Shizuku is running</string>
     <string name="shizuku_running_message">The Shizuku service is up and answering.</string>
+    <string name="shizuku_cannot_start_title">Shizuku is installed, but the service cannot be started</string>
+    <string name="shizuku_cannot_start_message">Only root or ADB can start the service, so Vocora cannot do it for you. Start it from the Shizuku app and come back.</string>
 
     <string name="shizuku_action_install">Get Shizuku</string>
     <string name="shizuku_action_open">Open Shizuku</string>

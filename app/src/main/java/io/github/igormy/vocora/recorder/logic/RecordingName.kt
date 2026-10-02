@@ -4,13 +4,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val EXTENSION = ".m4a"
-
 /**
- * Builds recording file names: `[iso date]-[number]-[direction].m4a`.
+ * Builds the name of the folder a call is recorded into: `[iso date]-[number]-[direction]`.
  *
- * The name starts as the date alone, because who the call was with is only known once it is over and
- * the call log has caught up.
+ * It starts as the date alone, because who the call was with is only known once it is over and the
+ * call log has caught up. Inside it go the mix and each side of the conversation.
  */
 object RecordingName {
 
@@ -18,9 +16,9 @@ object RecordingName {
     private const val ISO_PATTERN = "yyyy-MM-dd'T'HHmmss"
 
     fun forStart(startedAt: Date): String =
-        SimpleDateFormat(ISO_PATTERN, Locale.US).format(startedAt) + EXTENSION
+        SimpleDateFormat(ISO_PATTERN, Locale.US).format(startedAt)
 
     /** Adds who the call was with to a name made by [forStart]. */
     fun withCallDetails(name: String, number: String, direction: String): String =
-        "${name.removeSuffix(EXTENSION)}-$number-$direction$EXTENSION"
+        "$name-$number-$direction"
 }

@@ -1,37 +1,38 @@
 package io.github.igormy.vocora.recorder.logic
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AudioLevelTest {
 
-    private fun buffer(vararg samples: Short): ByteBuffer =
-        ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN).apply {
-            samples.forEach { putShort(it) }
+    private fun buffer(vararg samples: Short): ByteArray =
+        ByteArray(samples.size * 2).also { bytes ->
+            samples.forEachIndexed { i, sample ->
+                bytes[i * 2] = (sample.toInt() and 0xFF).toByte()
+                bytes[i * 2 + 1] = ((sample.toInt() shr 8) and 0xFF).toByte()
+            }
         }
 
     @Test
     fun `silence measures zero`() {
         val silence = buffer(0, 0, 0, 0)
 
-        assertEquals(0, AudioLevel.rms(silence, silence.capacity()))
+        assertEquals(0, AudioLevel.rms(silence, silence.size))
     }
 
     @Test
     fun `a constant tone measures its amplitude`() {
         val tone = buffer(1000, -1000, 1000, -1000)
 
-        assertEquals(1000, AudioLevel.rms(tone, tone.capacity()))
+        assertEquals(1000, AudioLevel.rms(tone, tone.size))
     }
 
     @Test
     fun `negative samples are read as signed`() {
         val negative = buffer(-2000, -2000)
 
-        assertEquals(2000, AudioLevel.rms(negative, negative.capacity()))
+        assertEquals(2000, AudioLevel.rms(negative, negative.size))
     }
 
     @Test

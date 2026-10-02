@@ -1,44 +1,82 @@
 package io.github.igormy.vocora.recorder.shell
 
-import android.media.AudioRecord
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
-import io.github.igormy.vocora.recorder.logic.AudioLevel
 import java.io.File
 
 private const val BIT_RATE = 64_000
-private const val CODEC_TIMEOUT_US = 10_000L
 private const val BYTES_PER_SAMPLE = 2
 
 /**
- * Encodes what an [AudioRecord] captures into AAC inside an .m4a file.
+ * Waiting on the codec costs capture.
  *
- * Nothing here knows about calls: it moves PCM into the encoder and encoded frames into the file
- * until it is told to stop, and reports the loudest level it saw on the way.
+ * One thread feeds three encoders while two sources keep filling their buffers, so every millisecond
+ * spent blocked here is audio about to be dropped. Draining never waits; only asking for an input
+ * buffer does, and barely.
+ */
+private const val INPUT_TIMEOUT_US = 2_000L
+private const val DRAIN_TIMEOUT_US = 0L
+
+/**
+ * Writes 16 bit mono PCM into an .m4a file as AAC.
+ *
+ * Audio is pushed in rather than pulled from a source, so one capture can feed several of these:
+ * each side of a call into its own file, and the mix of both into another.
  */
 class AacEncoder(private val output: File, private val sampleRate: Int) {
 
     private val encoder: MediaCodec = createEncoder()
     private val muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+    private val bufferInfo = MediaCodec.BufferInfo()
 
     private var trackIndex = -1
     private var muxerStarted = false
     private var totalSamples = 0L
-    private var peakLevel = 0
+    private var finished = false
 
-    /** Runs until [keepGoing] turns false, then finishes the file. Returns the peak signal level. */
-    fun encodeWhile(recorder: AudioRecord, keepGoing: () -> Boolean): Int {
-        val bufferInfo = MediaCodec.BufferInfo()
-        var endOfStreamSent = false
+    val file: File get() = output
 
-        while (true) {
-            if (!endOfStreamSent) {
-                endOfStreamSent = feed(recorder, keepGoing())
+    /**
+     * The encoder decides how much it takes at a time, and it is less than a chunk of capture, so
+     * the audio is handed over in as many pieces as its input buffers need.
+     */
+    fun write(pcm: ByteArray, size: Int) {
+        if (finished || size <= 0) return
+        var offset = 0
+        while (offset < size) {
+            val inputIndex = encoder.dequeueInputBuffer(INPUT_TIMEOUT_US)
+            if (inputIndex < 0) {
+                drain(untilEndOfStream = false)
+                continue
             }
-            if (drain(bufferInfo)) return peakLevel
+            val input = encoder.getInputBuffer(inputIndex) ?: return
+            input.clear()
+            val piece = minOf(input.capacity(), size - offset)
+            input.put(pcm, offset, piece)
+            encoder.queueInputBuffer(inputIndex, 0, piece, presentationTimeUs(), 0)
+            totalSamples += piece / BYTES_PER_SAMPLE
+            offset += piece
+            drain(untilEndOfStream = false)
         }
+    }
+
+    /** Queues end of stream and writes what is left, leaving a playable file. */
+    fun finish() {
+        if (finished) return
+        finished = true
+        val inputIndex = encoder.dequeueInputBuffer(INPUT_TIMEOUT_US)
+        if (inputIndex >= 0) {
+            encoder.queueInputBuffer(
+                inputIndex,
+                0,
+                0,
+                presentationTimeUs(),
+                MediaCodec.BUFFER_FLAG_END_OF_STREAM,
+            )
+        }
+        drain(untilEndOfStream = true)
     }
 
     fun release() {
@@ -48,59 +86,31 @@ class AacEncoder(private val output: File, private val sampleRate: Int) {
         muxer.release()
     }
 
-    /** Hands one buffer of PCM to the encoder. Returns true once end of stream has been queued. */
-    private fun feed(recorder: AudioRecord, keepGoing: Boolean): Boolean {
-        val inputIndex = encoder.dequeueInputBuffer(CODEC_TIMEOUT_US)
-        if (inputIndex < 0) return false
+    private fun presentationTimeUs(): Long = totalSamples * 1_000_000L / sampleRate
 
-        val input = encoder.getInputBuffer(inputIndex) ?: return false
-        input.clear()
-        val presentationTimeUs = totalSamples * 1_000_000L / sampleRate
-
-        if (!keepGoing) {
-            encoder.queueInputBuffer(
-                inputIndex,
-                0,
-                0,
-                presentationTimeUs,
-                MediaCodec.BUFFER_FLAG_END_OF_STREAM,
-            )
-            return true
-        }
-
-        val read = recorder.read(input, input.capacity())
-        if (read > 0) {
-            peakLevel = maxOf(peakLevel, AudioLevel.rms(input, read))
-            totalSamples += read / BYTES_PER_SAMPLE
-            encoder.queueInputBuffer(inputIndex, 0, read, presentationTimeUs, 0)
-        } else {
-            encoder.queueInputBuffer(inputIndex, 0, 0, presentationTimeUs, 0)
-        }
-        return false
-    }
-
-    /** Writes whatever the encoder has ready. Returns true when the stream is over. */
-    private fun drain(bufferInfo: MediaCodec.BufferInfo): Boolean {
-        when (val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, CODEC_TIMEOUT_US)) {
-            MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                trackIndex = muxer.addTrack(encoder.outputFormat)
-                muxer.start()
-                muxerStarted = true
-            }
-
-            MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
-
-            else -> if (outputIndex >= 0) {
-                val encoded = encoder.getOutputBuffer(outputIndex)
-                val isConfig = bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
-                if (encoded != null && bufferInfo.size > 0 && muxerStarted && !isConfig) {
-                    muxer.writeSampleData(trackIndex, encoded, bufferInfo)
+    private fun drain(untilEndOfStream: Boolean) {
+        val timeout = if (untilEndOfStream) INPUT_TIMEOUT_US else DRAIN_TIMEOUT_US
+        while (true) {
+            when (val outputIndex = encoder.dequeueOutputBuffer(bufferInfo, timeout)) {
+                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    trackIndex = muxer.addTrack(encoder.outputFormat)
+                    muxer.start()
+                    muxerStarted = true
                 }
-                encoder.releaseOutputBuffer(outputIndex, false)
-                return bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+
+                MediaCodec.INFO_TRY_AGAIN_LATER -> if (!untilEndOfStream) return
+
+                else -> if (outputIndex >= 0) {
+                    val encoded = encoder.getOutputBuffer(outputIndex)
+                    val isConfig = bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                    if (encoded != null && bufferInfo.size > 0 && muxerStarted && !isConfig) {
+                        muxer.writeSampleData(trackIndex, encoded, bufferInfo)
+                    }
+                    encoder.releaseOutputBuffer(outputIndex, false)
+                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
+                }
             }
         }
-        return false
     }
 
     private fun createEncoder(): MediaCodec {

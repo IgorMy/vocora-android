@@ -42,7 +42,7 @@ fun RecordingsList(
     }
 
     LazyColumn(modifier = modifier.fillMaxWidth()) {
-        items(recordings, key = { it.uri.toString() }) { recording ->
+        items(recordings, key = { it.mixedUri.toString() }) { recording ->
             RecordingRow(
                 recording = recording,
                 playing = recording.name == playingName,

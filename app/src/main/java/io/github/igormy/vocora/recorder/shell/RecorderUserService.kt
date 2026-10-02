@@ -39,7 +39,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     }
 
     private var outputDirectory: File? = null
-    private var currentFile: File? = null
+    private var currentFolder: File? = null
     private var callLogDateBeforeCall: Long = 0
 
     @Volatile
@@ -93,11 +93,11 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         if (!recorder.isRecording) return
         recorder.stop()
         notifier.hide()
-        val file = currentFile
-        currentFile = null
-        val deleted = file?.delete() ?: false
-        result = "recording discarded" + if (file != null && !deleted) {
-            ", but ${file.name} could not be deleted"
+        val folder = currentFolder
+        currentFolder = null
+        val deleted = folder?.deleteRecursively() ?: false
+        result = "recording discarded" + if (folder != null && !deleted) {
+            ", but ${folder.name} could not be deleted"
         } else {
             ""
         }
@@ -112,13 +112,13 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         // Remembered so that the entry this call adds can be told apart from the previous one.
         callLogDateBeforeCall = CallLogReader.latest()?.date ?: 0
 
-        val file = File(directory, RecordingName.forStart(Date()))
-        currentFile = file
-        result = if (recorder.start(file)) {
-            notifier.show(file.name)
-            "recording ${file.name}"
+        val folder = File(directory, RecordingName.forStart(Date()))
+        currentFolder = folder
+        result = if (recorder.start(folder)) {
+            notifier.show(folder.name)
+            "recording ${folder.name}"
         } else {
-            currentFile = null
+            currentFolder = null
             recorder.lastResult
         }
     }
@@ -128,23 +128,23 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         if (!recorder.isRecording) return
         recorder.stop()
         notifier.hide()
-        val file = currentFile?.let(::addCallDetails)
-        currentFile = file
-        result = "${recorder.lastResult}${file?.let { " → ${it.name}" }.orEmpty()}"
+        val folder = currentFolder?.let(::addCallDetails)
+        currentFolder = folder
+        result = "${recorder.lastResult}${folder?.let { " → ${it.name}" }.orEmpty()}"
     }
 
     /**
      * The call log only learns about a call once it is over, and with a small delay, so who it was
      * with is added by renaming. Without it the date alone is still a usable name.
      */
-    private fun addCallDetails(file: File): File {
-        if (!file.exists()) return file
-        val entry = awaitNewCallLogEntry() ?: return file
+    private fun addCallDetails(folder: File): File {
+        if (!folder.exists()) return folder
+        val entry = awaitNewCallLogEntry() ?: return folder
         val renamed = File(
-            file.parentFile,
-            RecordingName.withCallDetails(file.name, entry.number, entry.direction),
+            folder.parentFile,
+            RecordingName.withCallDetails(folder.name, entry.number, entry.direction),
         )
-        return if (file.renameTo(renamed)) renamed else file
+        return if (folder.renameTo(renamed)) renamed else folder
     }
 
     private fun awaitNewCallLogEntry(): CallLogEntry? {

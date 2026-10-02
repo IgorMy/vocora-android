@@ -181,8 +181,8 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
                 playingName = playingName,
                 progress = progress,
                 onPlay = { recording ->
-                    player.toggle(recording.uri) { playingName = null }
-                    playingName = if (player.isPlaying(recording.uri)) recording.name else null
+                    player.toggle(recording.mixedUri) { playingName = null }
+                    playingName = if (player.isPlaying(recording.mixedUri)) recording.name else null
                 },
             )
         }

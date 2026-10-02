@@ -14,7 +14,7 @@ class RecordingNameTest {
 
     @Test
     fun `starts as the date alone`() {
-        assertEquals("2026-10-02T210814.m4a", RecordingName.forStart(startedAt))
+        assertEquals("2026-10-02T210814", RecordingName.forStart(startedAt))
     }
 
     @Test
@@ -24,15 +24,15 @@ class RecordingNameTest {
 
     @Test
     fun `the call details are appended once the call is over`() {
-        val named = RecordingName.withCallDetails("2026-10-02T210814.m4a", "605339797", "incoming")
+        val named = RecordingName.withCallDetails("2026-10-02T210814", "605339797", "incoming")
 
-        assertEquals("2026-10-02T210814-605339797-incoming.m4a", named)
+        assertEquals("2026-10-02T210814-605339797-incoming", named)
     }
 
     @Test
-    fun `renaming twice does not stack extensions`() {
-        val once = RecordingName.withCallDetails("2026-10-02T210814.m4a", "600111222", "outgoing")
+    fun `the folder name carries no extension, it holds several files`() {
+        val once = RecordingName.withCallDetails("2026-10-02T210814", "600111222", "outgoing")
 
-        assertEquals(1, once.split(".m4a").size - 1)
+        assertFalse(once.contains(".m4a"))
     }
 }

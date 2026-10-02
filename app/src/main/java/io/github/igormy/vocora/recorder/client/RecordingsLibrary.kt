@@ -4,13 +4,21 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 
-private const val EXTENSION = ".m4a"
+/** The file inside a recording folder that holds both sides mixed, which is what gets played. */
+private const val MIXED_FILE = "mixed.m4a"
 
-/** A recording the user can play back. */
-data class Recording(val name: String, val uri: Uri, val recordedAt: Long)
+private val COLUMNS = arrayOf(
+    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+    DocumentsContract.Document.COLUMN_MIME_TYPE,
+)
+
+/** A recorded call: one folder holding the mix and each side on its own. */
+data class Recording(val name: String, val mixedUri: Uri, val recordedAt: Long)
 
 /**
- * Lists the recordings in the picked folder, newest first.
+ * Lists the recorded calls in the picked folder, newest first.
  *
  * It goes through the tree URI rather than the path: under scoped storage the app cannot read the
  * folder directly, even though the recorder writes to it.
@@ -19,33 +27,50 @@ object RecordingsLibrary {
 
     fun list(context: Context): List<Recording> {
         val treeUri = RecordingsFolder.treeUri(context) ?: return emptyList()
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            treeUri,
-            DocumentsContract.getTreeDocumentId(treeUri),
-        )
+        val rootId = runCatching { DocumentsContract.getTreeDocumentId(treeUri) }.getOrNull()
+            ?: return emptyList()
 
-        val columns = arrayOf(
-            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-        )
+        return children(context, treeUri, rootId)
+            .filter { it.isDirectory }
+            .mapNotNull { folder ->
+                val mixed = children(context, treeUri, folder.documentId)
+                    .firstOrNull { it.name == MIXED_FILE }
+                    ?: return@mapNotNull null
+                Recording(
+                    name = folder.name,
+                    mixedUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, mixed.documentId),
+                    recordedAt = folder.lastModified,
+                )
+            }
+            .sortedByDescending { it.recordedAt }
+    }
 
+    private data class Entry(
+        val documentId: String,
+        val name: String,
+        val lastModified: Long,
+        val isDirectory: Boolean,
+    )
+
+    private fun children(context: Context, treeUri: Uri, parentDocumentId: String): List<Entry> {
+        val childrenUri =
+            DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId)
         return runCatching {
-            context.contentResolver.query(childrenUri, columns, null, null, null)?.use { cursor ->
+            context.contentResolver.query(childrenUri, COLUMNS, null, null, null)?.use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
-                        val name = cursor.getString(1) ?: continue
-                        if (!name.endsWith(EXTENSION)) continue
                         add(
-                            Recording(
-                                name = name,
-                                uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(0)),
-                                recordedAt = cursor.getLong(2),
+                            Entry(
+                                documentId = cursor.getString(0),
+                                name = cursor.getString(1).orEmpty(),
+                                lastModified = cursor.getLong(2),
+                                isDirectory = cursor.getString(3) ==
+                                    DocumentsContract.Document.MIME_TYPE_DIR,
                             ),
                         )
                     }
                 }
             }.orEmpty()
-        }.getOrDefault(emptyList()).sortedByDescending { it.recordedAt }
+        }.getOrDefault(emptyList())
     }
 }

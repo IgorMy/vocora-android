@@ -1,6 +1,5 @@
 package io.github.igormy.vocora.recorder.logic
 
-import java.nio.ByteBuffer
 import kotlin.math.sqrt
 
 /**
@@ -15,12 +14,12 @@ object AudioLevel {
     const val NEAR_SILENT = 50
 
     /** Root mean square of 16 bit little endian mono samples. */
-    fun rms(buffer: ByteBuffer, bytes: Int): Int {
+    fun rms(buffer: ByteArray, bytes: Int): Int {
         var sum = 0.0
         var count = 0
         var i = 0
         while (i + 1 < bytes) {
-            val sample = ((buffer.get(i + 1).toInt() shl 8) or (buffer.get(i).toInt() and 0xFF)).toShort()
+            val sample = ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
             sum += sample.toDouble() * sample.toDouble()
             count++
             i += 2

@@ -34,7 +34,9 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     private val context: Context by lazy { ShellContext(baseContext ?: systemContext()) }
     private val recorder: CallAudioRecorder by lazy { CallAudioRecorder(context) }
     private val watcher: CallWatcher by lazy { CallWatcher(context) }
-    private val notifier: RecordingNotifier by lazy { RecordingNotifier(context) }
+    private val notifier: RecordingNotifier by lazy {
+        RecordingNotifier(context, onCancel = ::discardRecording)
+    }
 
     private var outputDirectory: File? = null
     private var currentFile: File? = null
@@ -74,12 +76,17 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         Log.i(TAG, "stopped watching")
     }
 
+    /** Cancels this call's recording from the notification, and keeps watching for the next call. */
+    override fun cancelCurrentRecording() {
+        discardRecording()
+    }
+
     /**
      * Drops a recording that was still in progress, file included.
      *
-     * Turning recording off in the middle of a call is a decision about that call too, so leaving a
-     * truncated file behind would be keeping something the user just asked not to keep. The encoder
-     * is stopped first so the file is closed before it is deleted.
+     * Stopping a recording half way is a decision about that call too, so leaving a truncated file
+     * behind would be keeping something the user just asked not to keep. The encoder is stopped
+     * first so the file is closed before it is deleted.
      */
     @Synchronized
     private fun discardRecording() {

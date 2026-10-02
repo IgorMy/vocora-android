@@ -18,6 +18,9 @@ interface IVocoraRecorder {
     /** Human readable outcome of the last recording. */
     String lastResult() = 5;
 
+    /** Stops recording this call and deletes what it recorded. Keeps watching for the next one. */
+    void cancelCurrentRecording() = 6;
+
     /** Called by the Shizuku server when the user service is torn down. */
     void destroy() = 16777114;
 }

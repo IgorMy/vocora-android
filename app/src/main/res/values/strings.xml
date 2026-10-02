@@ -16,6 +16,9 @@
     <string name="shizuku_action_retry">Check again</string>
 
     <string name="recorder_grant">Grant Shizuku access</string>
+    <string name="recorder_permission_explained">Vocora records calls through Shizuku, which has to allow it first.</string>
+    <string name="recordings_empty">No recordings yet</string>
+    <string name="recordings_folder_reselect">Choose the folder again to list what is in it. The previous version only stored its path.</string>
     <string name="recorder_toggle">Record calls</string>
     <string name="recorder_state_recording">Recording a call…</string>
     <string name="recorder_state_watching">Waiting for a call</string>

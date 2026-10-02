@@ -74,7 +74,7 @@ object CallRecorder {
 
     /** Starts watching for calls and remembers the choice. Needs a folder to write to. */
     suspend fun enable(context: Context): RecorderStatus {
-        val folder = RecordingsFolder.get(context)
+        val folder = RecordingsFolder.path(context)
             ?: throw IllegalStateException("no folder has been chosen")
         setEnabled(context, true)
         return withService { it.startWatching(folder); it.status() }
@@ -88,7 +88,7 @@ object CallRecorder {
 
     /** Re-arms the service when it should be watching but is not, after a reboot or an update. */
     suspend fun syncWithPreference(context: Context): RecorderStatus = withService { recorder ->
-        val folder = RecordingsFolder.get(context)
+        val folder = RecordingsFolder.path(context)
         when {
             isEnabled(context) && folder != null && !recorder.isWatching ->
                 recorder.startWatching(folder)

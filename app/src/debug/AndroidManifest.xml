@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Temporary: lets the 0.2.0 smoke test be started over ADB during a call. Debug only, an
+          exported receiver with no permission would let any installed app start a recording.
+        -->
+        <receiver
+            android:name=".recorder.SmokeTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.igormy.vocora.SMOKE_TEST" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

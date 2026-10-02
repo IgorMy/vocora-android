@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.igormy.vocora.R
-import io.github.igormy.vocora.recorder.SmokeTestPanel
+import io.github.igormy.vocora.recorder.ui.RecorderPanel
 import io.github.igormy.vocora.ui.theme.VocoraTheme
 
 /** Tells the user whether Shizuku is ready, and how to fix it when it is not. */
@@ -99,7 +99,7 @@ private fun ShizukuStatusContent(
             OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.shizuku_action_retry)) }
         }
         if (status == ShizukuStatus.Running) {
-            SmokeTestPanel()
+            RecorderPanel()
         }
     }
 }

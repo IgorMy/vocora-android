@@ -5,23 +5,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
@@ -42,7 +30,7 @@ private const val BINDER_POLL_MILLIS = 200L
  * On a cold start the service hands its binder over a moment after the app comes up, so wait a
  * little before deciding it is down: otherwise a running Shizuku looks stopped on the first check.
  */
-private const val INITIAL_BINDER_WAIT_MILLIS = 1_500L
+internal const val INITIAL_BINDER_WAIT_MILLIS = 1_500L
 
 /** Whether the Shizuku app is present on the device. */
 fun isShizukuInstalled(context: Context): Boolean = try {
@@ -71,7 +59,7 @@ fun isShizukuRunning(): Boolean = try {
  * Only root can do this: without it the service has to be started over ADB, so this returns false
  * and the user is pointed at [SHIZUKU_SETUP_GUIDE].
  */
-private suspend fun startShizuku(context: Context): Boolean = withContext(Dispatchers.IO) {
+internal suspend fun startShizuku(context: Context): Boolean = withContext(Dispatchers.IO) {
     if (!runStarterAsRoot(context)) return@withContext false
     awaitShizukuRunning()
 }
@@ -106,7 +94,7 @@ private fun shizukuNativeLibraryDir(context: Context): String =
     }.nativeLibraryDir
 
 /** The service takes a moment to come up and hand its binder over, so poll instead of asking once. */
-private suspend fun awaitShizukuRunning(timeoutMillis: Long = BINDER_TIMEOUT_MILLIS): Boolean {
+internal suspend fun awaitShizukuRunning(timeoutMillis: Long = BINDER_TIMEOUT_MILLIS): Boolean {
     var waited = 0L
     while (waited < timeoutMillis) {
         if (isShizukuRunning()) return true
@@ -126,72 +114,4 @@ fun openShizukuApp(context: Context): Boolean {
     val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE) ?: return false
     context.startActivity(intent)
     return true
-}
-
-/** Observable Shizuku availability, re-checkable on demand. */
-class ShizukuStatusState internal constructor(
-    private val context: Context,
-    private val scope: CoroutineScope,
-) {
-    var status: ShizukuStatus by mutableStateOf(ShizukuStatus.Starting)
-        private set
-
-    private var job: Job? = null
-
-    /** Re-checks Shizuku and, when it is installed but down, tries to start its service. */
-    fun refresh() {
-        job?.cancel()
-        job = scope.launch {
-            if (!isShizukuInstalled(context)) {
-                status = ShizukuStatus.NotInstalled
-                return@launch
-            }
-            if (isShizukuRunning()) {
-                status = ShizukuStatus.Running
-                return@launch
-            }
-            status = ShizukuStatus.Starting
-            if (awaitShizukuRunning(INITIAL_BINDER_WAIT_MILLIS)) {
-                status = ShizukuStatus.Running
-                return@launch
-            }
-            status = if (startShizuku(context)) ShizukuStatus.Running else ShizukuStatus.CannotStart
-        }
-    }
-
-    /** The service came up on its own, so drop any ongoing start attempt. */
-    internal fun onBinderReceived() {
-        job?.cancel()
-        status = ShizukuStatus.Running
-    }
-}
-
-/**
- * Observes Shizuku availability: starts the service when it is down, follows the binder coming up or
- * dying, and re-checks on every resume so coming back from Shizuku shows the new state.
- */
-@Composable
-fun rememberShizukuStatus(): ShizukuStatusState {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val state = remember(context, scope) { ShizukuStatusState(context, scope) }
-
-    DisposableEffect(state) {
-        val onBinderReceived = Shizuku.OnBinderReceivedListener { state.onBinderReceived() }
-        // The service died: check again and try to bring it back.
-        val onBinderDead = Shizuku.OnBinderDeadListener { state.refresh() }
-        Shizuku.addBinderReceivedListenerSticky(onBinderReceived)
-        Shizuku.addBinderDeadListener(onBinderDead)
-        onDispose {
-            Shizuku.removeBinderReceivedListener(onBinderReceived)
-            Shizuku.removeBinderDeadListener(onBinderDead)
-        }
-    }
-
-    LifecycleResumeEffect(state) {
-        state.refresh()
-        onPauseOrDispose { }
-    }
-
-    return state
 }

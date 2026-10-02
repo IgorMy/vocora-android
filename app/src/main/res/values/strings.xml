@@ -15,7 +15,13 @@
     <string name="shizuku_action_open">Open Shizuku</string>
     <string name="shizuku_action_retry">Check again</string>
 
-    <string name="smoke_test_grant">Grant Shizuku access</string>
-    <string name="smoke_test_run">Record %1$d s of the call</string>
-    <string name="smoke_test_running">Recording…</string>
+    <string name="recorder_grant">Grant Shizuku access</string>
+    <string name="recorder_toggle">Record calls</string>
+    <string name="recorder_state_recording">Recording a call…</string>
+    <string name="recorder_state_watching">Waiting for a call</string>
+    <string name="recorder_state_off">Not recording calls</string>
+    <string name="recorder_choose_folder">Choose folder</string>
+    <string name="recorder_folder">Saving to %1$s</string>
+    <string name="recorder_folder_required">Choose a folder before recording calls</string>
+    <string name="recorder_folder_unsupported">That folder cannot be used. Pick one on internal storage.</string>
 </resources>

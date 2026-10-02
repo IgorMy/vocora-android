@@ -11,6 +11,8 @@
 /.idea/deviceManager.xml
 /.idea/claudeCodeEditorTabs.xml
 .DS_Store
+*.jks
+*.keystore
 /build
 /captures
 .externalNativeBuild

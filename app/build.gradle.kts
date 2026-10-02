@@ -51,6 +51,16 @@ android {
     }
 }
 
+// Ship APKs as vocora-<version>.apk instead of the default app-<buildType>.apk.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            (output as? com.android.build.api.variant.impl.VariantOutputImpl)?.outputFileName
+                ?.set("${rootProject.name}-${output.versionName.get()}.apk")
+        }
+    }
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

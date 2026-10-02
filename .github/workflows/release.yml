@@ -13,7 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Full history so the annotated tag object, which holds the release text, is available.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -44,8 +47,18 @@ jobs:
           fi
           ./gradlew assembleRelease
 
+      # The tag message describes what the version brings; the changelog is appended to it.
+      - name: Read the release text from the tag
+        run: |
+          {
+            echo "RELEASE_BODY<<RELEASE_BODY_EOF"
+            git tag --list --format='%(contents:body)' "$GITHUB_REF_NAME"
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/*.apk
+          body: ${{ env.RELEASE_BODY }}
           generate_release_notes: true

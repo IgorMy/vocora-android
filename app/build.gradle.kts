@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Release signing material is passed in by CI and never kept in the repo.
+val keystorePath: String? = System.getenv("KEYSTORE_FILE")
+
 android {
     namespace = "io.github.igormy.vocora"
     compileSdk {
@@ -14,13 +17,26 @@ android {
         minSdk = 29
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Without a keystore the APK comes out unsigned and cannot be installed.
+            signingConfig = signingConfigs.findByName("release")
             optimization {
                 enable = false
             }

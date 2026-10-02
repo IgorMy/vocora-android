@@ -1,4 +1,4 @@
-package com.example.vocora.shizuku
+package io.github.igormy.vocora.shizuku
 
 import android.content.Context
 import android.content.Intent

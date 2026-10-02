@@ -1,4 +1,4 @@
-package com.example.vocora
+package io.github.igormy.vocora
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import com.example.vocora.shizuku.ShizukuStatusScreen
-import com.example.vocora.ui.theme.VocoraTheme
+import io.github.igormy.vocora.shizuku.ShizukuStatusScreen
+import io.github.igormy.vocora.ui.theme.VocoraTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

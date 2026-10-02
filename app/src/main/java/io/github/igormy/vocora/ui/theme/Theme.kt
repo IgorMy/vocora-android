@@ -1,4 +1,4 @@
-package com.example.vocora.ui.theme
+package io.github.igormy.vocora.ui.theme
 
 import android.app.Activity
 import android.os.Build

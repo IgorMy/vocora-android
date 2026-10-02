@@ -1,4 +1,4 @@
-package com.example.vocora.shizuku
+package io.github.igormy.vocora.shizuku
 
 /** Result of checking whether Shizuku is usable on this device. */
 sealed interface ShizukuStatus {

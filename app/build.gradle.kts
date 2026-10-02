@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.vocora"
+    namespace = "io.github.igormy.vocora"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.vocora"
+        applicationId = "io.github.igormy.vocora"
         minSdk = 29
         targetSdk = 37
         versionCode = 1

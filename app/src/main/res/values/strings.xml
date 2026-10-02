@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">vocora</string>
+
+    <string name="shizuku_title">Shizuku</string>
+    <string name="shizuku_not_installed_title">Shizuku is not installed</string>
+    <string name="shizuku_not_installed_message">Vocora needs Shizuku to work. Install it from shizuku.rikka.app and start the service.</string>
+    <string name="shizuku_not_running_title">Shizuku is not running</string>
+    <string name="shizuku_not_running_message">Shizuku is installed but its service is stopped. Open Shizuku and start it, then come back.</string>
+    <string name="shizuku_running_title">Shizuku is running</string>
+    <string name="shizuku_running_message">The Shizuku service is up and answering.</string>
+
+    <string name="shizuku_action_install">Get Shizuku</string>
+    <string name="shizuku_action_open">Open Shizuku</string>
+    <string name="shizuku_action_retry">Check again</string>
 </resources>

@@ -14,4 +14,8 @@
     <string name="shizuku_action_install">Get Shizuku</string>
     <string name="shizuku_action_open">Open Shizuku</string>
     <string name="shizuku_action_retry">Check again</string>
+
+    <string name="smoke_test_grant">Grant Shizuku access</string>
+    <string name="smoke_test_run">Record %1$d s of the call</string>
+    <string name="smoke_test_running">Recording…</string>
 </resources>

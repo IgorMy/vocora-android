@@ -31,6 +31,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Temporary: lets the 0.2.0 smoke test be started over ADB during a call. -->
+        <receiver
+            android:name=".recorder.SmokeTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.igormy.vocora.SMOKE_TEST" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

@@ -15,6 +15,9 @@
     <string name="shizuku_action_open">Open Shizuku</string>
     <string name="shizuku_action_retry">Check again</string>
 
+    <string name="tab_settings">Settings</string>
+    <string name="tab_recordings">Recordings</string>
+
     <string name="recorder_grant">Grant Shizuku access</string>
     <string name="recorder_permission_explained">Vocora records calls through Shizuku, which has to allow it first.</string>
     <string name="recordings_empty">No recordings yet</string>

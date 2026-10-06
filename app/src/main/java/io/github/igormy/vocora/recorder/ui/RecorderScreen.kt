@@ -5,20 +5,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,9 +43,14 @@ import rikka.shizuku.Shizuku
 /** Often enough that the bar moves smoothly, rarely enough to be free. */
 private const val PROGRESS_REFRESH_MILLIS = 200L
 
+private const val TAB_RECORDINGS = 0
+private const val TAB_SETTINGS = 1
+
 /**
- * The whole app once Shizuku is working: where recordings go, whether to record, and what has been
- * recorded so far.
+ * The whole app once Shizuku is working, in two tabs: what Vocora does, and what it has recorded.
+ *
+ * The state they share lives here because both tabs move it: picking a folder changes what can be
+ * listed, and recording changes what there is to list.
  */
 @Composable
 fun RecorderScreen(modifier: Modifier = Modifier) {
@@ -54,6 +58,7 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val player = remember { RecordingPlayer(context) }
 
+    var selectedTab by remember { mutableIntStateOf(TAB_RECORDINGS) }
     var granted by remember { mutableStateOf(CallRecorder.hasPermission()) }
     var folder by remember { mutableStateOf(RecordingsFolder.path(context)) }
     var enabled by remember { mutableStateOf(CallRecorder.isEnabled(context)) }
@@ -117,36 +122,39 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
         return
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FolderRow(folder) { pickFolder.launch(null) }
+    Column(modifier = modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == TAB_RECORDINGS,
+                onClick = { selectedTab = TAB_RECORDINGS },
+                text = { Text(stringResource(R.string.tab_recordings)) },
+            )
+            Tab(
+                selected = selectedTab == TAB_SETTINGS,
+                onClick = { selectedTab = TAB_SETTINGS },
+                text = { Text(stringResource(R.string.tab_settings)) },
+            )
+        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Text(stringResource(R.string.recorder_toggle))
-                Text(
-                    text = when {
-                        status.recording -> stringResource(R.string.recorder_state_recording)
-                        status.watching -> stringResource(R.string.recorder_state_watching)
-                        else -> stringResource(R.string.recorder_state_off)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                // Nothing can be recorded without somewhere to write it.
-                enabled = folder != null,
-                checked = enabled,
-                onCheckedChange = { wanted ->
+        when (selectedTab) {
+            TAB_RECORDINGS -> RecordingsTab(
+                recordings = recordings,
+                playingName = playingName,
+                progress = progress,
+                needsFolderAgain = folder != null && RecordingsFolder.treeUri(context) == null,
+                onPlay = { recording ->
+                    player.toggle(recording.mixedUri) { playingName = null }
+                    playingName = if (player.isPlaying(recording.mixedUri)) recording.name else null
+                },
+            )
+
+            else -> SettingsTab(
+                folder = folder,
+                enabled = enabled,
+                status = status,
+                error = error,
+                onPickFolder = { pickFolder.launch(null) },
+                onEnabledChange = { wanted ->
                     enabled = wanted
                     scope.launch {
                         runCatching {
@@ -158,54 +166,6 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
                 },
             )
         }
-
-        error?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-
-        if (folder != null && RecordingsFolder.treeUri(context) == null) {
-            // Folder picked by a version that only stored the path: the app cannot read it without
-            // the permission that comes with the tree URI, so it has to be picked once more.
-            Text(
-                text = stringResource(R.string.recordings_folder_reselect),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            RecordingsList(
-                recordings = recordings,
-                playingName = playingName,
-                progress = progress,
-                onPlay = { recording ->
-                    player.toggle(recording.mixedUri) { playingName = null }
-                    playingName = if (player.isPlaying(recording.mixedUri)) recording.name else null
-                },
-            )
-        }
-    }
-}
-
-@Composable
-private fun FolderRow(folder: String?, onPick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        OutlinedButton(onClick = onPick) {
-            Text(stringResource(R.string.recorder_choose_folder))
-        }
-        Text(
-            text = folder ?: stringResource(R.string.recorder_folder_required),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

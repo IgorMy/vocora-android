@@ -46,7 +46,7 @@ class RecordingNotifier(private val context: Context) {
      */
     var cancelAction: PendingIntent? = null
 
-    fun show() {
+    fun show(detail: String? = null) {
         val manager = manager ?: return
         try {
             manager.createNotificationChannel(
@@ -58,7 +58,7 @@ class RecordingNotifier(private val context: Context) {
                     },
             )
             val builder = Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(Icon.createWithResource("android", android.R.drawable.ic_btn_speak_now))
+                .setSmallIcon(RecordingIcon.microphone())
                 .setContentTitle("Vocora")
                 // Short on purpose: a second line pushes the action out of the collapsed card.
                 .setContentText("Recording call")
@@ -66,12 +66,22 @@ class RecordingNotifier(private val context: Context) {
                 // when expanded. Being dismissable costs only the indicator, never the recording.
                 .setOngoing(false)
                 .setShowWhen(true)
+                // The expanded view has to be taller than the folded one, or the system decides
+                // there is nothing to show and hides the arrow that opens it. With no way to open
+                // it, the action inside was unreachable.
+                .setStyle(Notification.BigTextStyle().bigText(expandedText(detail)))
 
             cancelAction?.let { builder.addAction(cancelButton(it)) }
             manager.notify(NOTIFICATION_ID, builder.build())
         } catch (e: Exception) {
             Log.i(TAG, "could not show the recording notification: ${e.javaClass.simpleName}: ${e.message}")
         }
+    }
+
+    private fun expandedText(detail: String?): String = buildString {
+        append("Both sides of this call are being recorded.")
+        detail?.let { append("\n\nSaving into $it") }
+        append("\n\nCancelling discards what has been recorded so far.")
     }
 
     fun hide() {

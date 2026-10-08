@@ -32,6 +32,9 @@ interface IVocoraRecorder {
     /** Numbers whose calls are thrown away as soon as the call log says who it was. */
     void setBlacklist(in List<String> numbers) = 7;
 
+    /** Temporary: shows or hides the recording notification without a call, to work on it. */
+    void showTestNotification(boolean visible) = 8;
+
     /** Called by the Shizuku server when the user service is torn down. */
     void destroy() = 16777114;
 }

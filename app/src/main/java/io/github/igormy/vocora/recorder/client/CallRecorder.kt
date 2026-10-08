@@ -109,6 +109,10 @@ object CallRecorder {
 
     suspend fun status(): RecorderStatus = withService { it.status() }
 
+    /** Temporary: see showTestNotification in the service. */
+    suspend fun showTestNotification(visible: Boolean): Unit =
+        withService { it.showTestNotification(visible) }
+
     /** Sends the list again after it is edited, so a change applies to the very next call. */
     suspend fun updateBlacklist(context: Context): Unit =
         withService { it.setBlacklist(Blacklist.numbers(context)) }

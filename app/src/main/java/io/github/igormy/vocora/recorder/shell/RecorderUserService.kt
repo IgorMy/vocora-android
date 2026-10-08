@@ -55,6 +55,10 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         blacklist = numbers.orEmpty()
     }
 
+    override fun showTestNotification(visible: Boolean) {
+        if (visible) notifier.show() else notifier.hide()
+    }
+
     override fun isWatching(): Boolean = watching
 
     override fun isRecording(): Boolean = recorder.isRecording
@@ -86,6 +90,9 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
 
     /** Cancels this call's recording from the notification, and keeps watching for the next call. */
     override fun cancelCurrentRecording() {
+        // Taken down whatever the state: having pressed cancel and still seeing the notification
+        // reads as the button being broken, which is how this looked while it was.
+        notifier.hide()
         discardRecording()
     }
 
@@ -123,7 +130,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         val folder = File(directory, RecordingName.forStart(Date()))
         currentFolder = folder
         result = if (recorder.start(folder)) {
-            notifier.show()
+            notifier.show(folder.name)
             "recording ${folder.name}"
         } else {
             currentFolder = null

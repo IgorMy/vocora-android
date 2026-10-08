@@ -14,9 +14,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,15 +31,12 @@ import io.github.igormy.vocora.R
 import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecorderStatus
-import io.github.igormy.vocora.recorder.client.RecordingPlayer
 import io.github.igormy.vocora.recorder.client.RecordingsFolder
 import io.github.igormy.vocora.recorder.client.RecordingsLibrary
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
-
-/** Often enough that the bar moves smoothly, rarely enough to be free. */
-private const val PROGRESS_REFRESH_MILLIS = 200L
 
 private const val TAB_RECORDINGS = 0
 private const val TAB_SETTINGS = 1
@@ -56,30 +51,24 @@ private const val TAB_SETTINGS = 1
 fun RecorderScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val player = remember { RecordingPlayer(context) }
-
     var selectedTab by remember { mutableIntStateOf(TAB_RECORDINGS) }
     var granted by remember { mutableStateOf(CallRecorder.hasPermission()) }
     var folder by remember { mutableStateOf(RecordingsFolder.path(context)) }
     var enabled by remember { mutableStateOf(CallRecorder.isEnabled(context)) }
     var status by remember { mutableStateOf(RecorderStatus()) }
     var recordings by remember { mutableStateOf(emptyList<Recording>()) }
-    var playingName by remember { mutableStateOf<String?>(null) }
-    var progress by remember { mutableFloatStateOf(0f) }
+    var recordingsRead by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // MediaPlayer reports no progress of its own, so it is read while something is playing. The
-    // loop is tied to what is playing, so it stops as soon as nothing is.
-    LaunchedEffect(playingName) {
-        progress = 0f
-        while (playingName != null) {
-            progress = player.progress
-            delay(PROGRESS_REFRESH_MILLIS)
-        }
+    // Listing reads durations and the address book, which is too much for the main thread. It is
+    // suspending so that whoever changed something can wait for the list to catch up.
+    suspend fun reloadRecordings() {
+        recordings = withContext(Dispatchers.IO) { RecordingsLibrary.list(context) }
+        recordingsRead = true
     }
 
     fun refresh() {
-        recordings = RecordingsLibrary.list(context)
+        scope.launch { reloadRecordings() }
         scope.launch {
             runCatching { CallRecorder.syncWithPreference(context) }
                 .onSuccess { status = it; error = null }
@@ -105,10 +94,7 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
             granted = result == PackageManager.PERMISSION_GRANTED
         }
         Shizuku.addRequestPermissionResultListener(listener)
-        onDispose {
-            Shizuku.removeRequestPermissionResultListener(listener)
-            player.stop()
-        }
+        onDispose { Shizuku.removeRequestPermissionResultListener(listener) }
     }
 
     // The recorder keeps running without the app, so its state is read back on every resume.
@@ -139,13 +125,9 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
         when (selectedTab) {
             TAB_RECORDINGS -> RecordingsTab(
                 recordings = recordings,
-                playingName = playingName,
-                progress = progress,
+                loading = !recordingsRead,
                 needsFolderAgain = folder != null && RecordingsFolder.treeUri(context) == null,
-                onPlay = { recording ->
-                    player.toggle(recording.mixedUri) { playingName = null }
-                    playingName = if (player.isPlaying(recording.mixedUri)) recording.name else null
-                },
+                onChanged = ::reloadRecordings,
             )
 
             else -> SettingsTab(

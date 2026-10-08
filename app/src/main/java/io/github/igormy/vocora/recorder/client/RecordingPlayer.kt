@@ -7,48 +7,70 @@ import android.util.Log
 
 private const val TAG = "VocoraRecorder"
 
-/** Plays one recording at a time, and says which one is playing so the list can show it. */
+/** What the speed button cycles through. */
+val PLAYBACK_SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+
+/**
+ * Plays one recording at a time.
+ *
+ * MediaPlayer reports nothing of its own, so position and state are read whenever the screen asks.
+ * Every read can throw if the player was released in between, which is treated as nothing playing.
+ */
 class RecordingPlayer(private val context: Context) {
 
     private var player: MediaPlayer? = null
-    private var playingUri: Uri? = null
 
-    fun isPlaying(uri: Uri): Boolean = playingUri == uri
+    var current: Uri? = null
+        private set
 
-    /**
-     * How far along the current recording is, between 0 and 1.
-     *
-     * MediaPlayer reports no progress of its own, so this is read whenever the screen asks. It can
-     * throw if the player was released in between, which is treated as nothing playing.
-     */
-    val progress: Float
-        get() = runCatching {
-            val current = player ?: return 0f
-            val duration = current.duration
-            if (duration <= 0) 0f else current.currentPosition.toFloat() / duration
-        }.getOrDefault(0f).coerceIn(0f, 1f)
+    var speed: Float = 1f
+        private set
 
-    /** Plays [uri], or stops it if it is the one already playing. [onFinished] runs on completion. */
-    fun toggle(uri: Uri, onFinished: () -> Unit) {
-        if (playingUri == uri) {
-            stop()
-            return
-        }
+    val isPlaying: Boolean
+        get() = runCatching { player?.isPlaying == true }.getOrDefault(false)
+
+    val positionMillis: Int
+        get() = runCatching { player?.currentPosition ?: 0 }.getOrDefault(0)
+
+    val durationMillis: Int
+        get() = runCatching { player?.duration?.coerceAtLeast(0) ?: 0 }.getOrDefault(0)
+
+    /** Starts [uri] from the beginning, replacing whatever was playing. */
+    fun play(uri: Uri, onFinished: () -> Unit) {
         stop()
         try {
             player = MediaPlayer().apply {
                 setDataSource(context, uri)
-                setOnCompletionListener {
-                    stop()
-                    onFinished()
-                }
+                setOnCompletionListener { onFinished() }
                 prepare()
+                playbackParams = playbackParams.setSpeed(speed)
                 start()
             }
-            playingUri = uri
+            current = uri
         } catch (e: Exception) {
             Log.w(TAG, "could not play $uri: ${e.javaClass.simpleName}: ${e.message}")
             stop()
+        }
+    }
+
+    fun togglePlayPause() {
+        val player = player ?: return
+        runCatching { if (player.isPlaying) player.pause() else player.start() }
+    }
+
+    fun seekTo(millis: Int) {
+        runCatching { player?.seekTo(millis.coerceAtLeast(0)) }
+    }
+
+    /** Applied to whatever plays next too, so the choice survives changing recording. */
+    fun setSpeed(value: Float) {
+        speed = value
+        val player = player ?: return
+        runCatching {
+            val wasPlaying = player.isPlaying
+            // Setting the params resumes playback on some versions, so put it back if it was paused.
+            player.playbackParams = player.playbackParams.setSpeed(value)
+            if (!wasPlaying) player.pause()
         }
     }
 
@@ -56,6 +78,6 @@ class RecordingPlayer(private val context: Context) {
         player?.runCatching { if (isPlaying) stop() }
         player?.release()
         player = null
-        playingUri = null
+        current = null
     }
 }

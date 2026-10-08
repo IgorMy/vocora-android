@@ -4,54 +4,71 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.util.Log
 
 private const val TAG = "VocoraRecorder"
 
-private const val CHANNEL_ID = "vocora-recording"
+/**
+ * A channel's importance cannot be changed once it exists, so raising it needs a new id each time.
+ *
+ * Importance is what decides whether the action is reachable. Below high, the notification stays
+ * folded in the shade and its button with it; at high it appears as a banner, where the button is
+ * drawn. That is why a messaging app can be replied to from the notification and this could not.
+ */
+private const val CHANNEL_ID = "vocora-recording-heads-up"
 private const val CHANNEL_NAME = "Call recording"
 private const val NOTIFICATION_ID = 2026
 
-/** Sent by the notification action. Handled in this process, so the app does not have to wake up. */
-private const val ACTION_CANCEL = "io.github.igormy.vocora.CANCEL_RECORDING"
-
 /**
- * Shows that a call is being recorded, from the recorder process itself.
+ * CallStyle, the template that keeps its buttons visible on the lock screen, is not an option here:
+ * the system refuses it outright unless the notification belongs to a foreground service, a user
+ * initiated job, or carries a full screen intent, and a process started by Shizuku has none of them.
+ * Attempting it means no notification at all, not a plainer one.
  *
- * It has to come from here and not from the app: the app is usually dead while a call is recorded.
- * The notification is posted as `com.android.shell`, the package this process runs as, so the system
- * shows it as coming from the shell rather than from Vocora. The icon is a framework one for the
- * same reason, as resources of this APK cannot be resolved against the posting package.
+ * Shows that a call is being recorded, from the recorder process itself, because the app is usually
+ * dead while a call is recorded. It is posted as `com.android.shell`, the package this process runs
+ * as, so the system attributes it to the shell rather than to Vocora, and its icon has to be a
+ * framework one for the same reason.
  */
-class RecordingNotifier(private val context: Context, private val onCancel: () -> Unit) {
+class RecordingNotifier(private val context: Context) {
 
     private val manager: NotificationManager? by lazy {
         runCatching { context.getSystemService(NotificationManager::class.java) }.getOrNull()
     }
 
-    private var receiver: BroadcastReceiver? = null
+    /**
+     * What the cancel button fires, built by the app and handed over.
+     *
+     * This process cannot receive a broadcast of its own: the ActivityManager does not know it as an
+     * app process, so a receiver registered here is never delivered to. Verified, not assumed.
+     */
+    var cancelAction: PendingIntent? = null
 
-    fun show(fileName: String) {
+    fun show() {
         val manager = manager ?: return
         try {
-            registerCancelReceiver()
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW),
+                // High so the banner shows with its button, silent so it does not interrupt the call.
+                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH)
+                    .apply {
+                        setSound(null, null)
+                        enableVibration(false)
+                    },
             )
-            val notification = Notification.Builder(context, CHANNEL_ID)
+            val builder = Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(Icon.createWithResource("android", android.R.drawable.ic_btn_speak_now))
                 .setContentTitle("Vocora")
-                .setContentText("Recording call into $fileName")
-                .setOngoing(true)
+                // Short on purpose: a second line pushes the action out of the collapsed card.
+                .setContentText("Recording call")
+                // Not ongoing: HyperOS draws ongoing notifications compact and drops their actions
+                // when expanded. Being dismissable costs only the indicator, never the recording.
+                .setOngoing(false)
                 .setShowWhen(true)
-                .addAction(cancelAction())
-                .build()
-            manager.notify(NOTIFICATION_ID, notification)
+
+            cancelAction?.let { builder.addAction(cancelButton(it)) }
+            manager.notify(NOTIFICATION_ID, builder.build())
         } catch (e: Exception) {
             Log.i(TAG, "could not show the recording notification: ${e.javaClass.simpleName}: ${e.message}")
         }
@@ -61,38 +78,9 @@ class RecordingNotifier(private val context: Context, private val onCancel: () -
         runCatching { manager?.cancel(NOTIFICATION_ID) }
     }
 
-    private fun cancelAction(): Notification.Action {
-        val intent = Intent(ACTION_CANCEL).setPackage(context.packageName)
-        val pending = PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        return Notification.Action.Builder(
-            Icon.createWithResource("android", android.R.drawable.ic_menu_close_clear_cancel),
-            "Cancel recording",
-            pending,
-        ).build()
-    }
-
-    /** Registered once and kept, so the action works for every call this process records. */
-    private fun registerCancelReceiver() {
-        if (receiver != null) return
-        val cancelReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == ACTION_CANCEL) onCancel()
-            }
-        }
-        try {
-            context.registerReceiver(
-                cancelReceiver,
-                IntentFilter(ACTION_CANCEL),
-                Context.RECEIVER_NOT_EXPORTED,
-            )
-            receiver = cancelReceiver
-        } catch (e: Exception) {
-            Log.w(TAG, "the cancel action will not work: ${e.javaClass.simpleName}: ${e.message}")
-        }
-    }
+    private fun cancelButton(intent: PendingIntent): Notification.Action = Notification.Action.Builder(
+        Icon.createWithResource("android", android.R.drawable.ic_menu_close_clear_cancel),
+        "Cancel recording",
+        intent,
+    ).build()
 }

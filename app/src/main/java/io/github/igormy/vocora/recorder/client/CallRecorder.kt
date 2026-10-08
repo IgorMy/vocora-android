@@ -1,6 +1,8 @@
 package io.github.igormy.vocora.recorder.client
 
+import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.Intent
 import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
@@ -77,7 +79,11 @@ object CallRecorder {
         val folder = RecordingsFolder.path(context)
             ?: throw IllegalStateException("no folder has been chosen")
         setEnabled(context, true)
-        return withService { it.startWatching(folder); it.status() }
+        return withService {
+            it.setBlacklist(Blacklist.numbers(context))
+            it.startWatching(folder, cancelAction(context))
+            it.status()
+        }
     }
 
     /** Stops watching and forgets the choice. */
@@ -90,8 +96,10 @@ object CallRecorder {
     suspend fun syncWithPreference(context: Context): RecorderStatus = withService { recorder ->
         val folder = RecordingsFolder.path(context)
         when {
-            isEnabled(context) && folder != null && !recorder.isWatching ->
-                recorder.startWatching(folder)
+            isEnabled(context) && folder != null && !recorder.isWatching -> {
+                recorder.setBlacklist(Blacklist.numbers(context))
+                recorder.startWatching(folder, cancelAction(context))
+            }
 
             (!isEnabled(context) || folder == null) && recorder.isWatching ->
                 recorder.stopWatching()
@@ -100,6 +108,27 @@ object CallRecorder {
     }
 
     suspend fun status(): RecorderStatus = withService { it.status() }
+
+    /** Sends the list again after it is edited, so a change applies to the very next call. */
+    suspend fun updateBlacklist(context: Context): Unit =
+        withService { it.setBlacklist(Blacklist.numbers(context)) }
+
+    /** Drops the recording of the call in progress, keeping the recorder armed for the next one. */
+    suspend fun cancelCurrentRecording(): Unit = withService { it.cancelCurrentRecording() }
+
+    /**
+     * The notification's cancel button, built here and handed to the recorder.
+     *
+     * It belongs to this app, so the receiver it fires can stay private: a button built by the
+     * recorder would be fired as the shell package and would need an exported receiver, which any
+     * app could then use to throw away a recording in progress.
+     */
+    private fun cancelAction(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        0,
+        Intent(context, CancelRecordingReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun IVocoraRecorder.status() =
         RecorderStatus(isWatching, isRecording, lastResult())

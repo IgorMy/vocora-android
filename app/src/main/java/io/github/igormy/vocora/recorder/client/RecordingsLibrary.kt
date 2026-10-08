@@ -1,8 +1,11 @@
 package io.github.igormy.vocora.recorder.client
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
+import io.github.igormy.vocora.recorder.logic.RecordingDay
+import io.github.igormy.vocora.recorder.logic.RecordingLabel
 
 /** The file inside a recording folder that holds both sides mixed, which is what gets played. */
 private const val MIXED_FILE = "mixed.m4a"
@@ -15,13 +18,27 @@ private val COLUMNS = arrayOf(
 )
 
 /** A recorded call: one folder holding the mix and each side on its own. */
-data class Recording(val name: String, val mixedUri: Uri, val recordedAt: Long)
+data class Recording(
+    val name: String,
+    val folderUri: Uri,
+    val mixedUri: Uri,
+    val recordedAt: Long,
+    val durationMillis: Int,
+    val number: String?,
+    val contact: Contact?,
+) {
+    /** Midnight of the day it happened, which is what the list groups by. */
+    val day: Long get() = RecordingDay.startOfDay(recordedAt)
+}
 
 /**
- * Lists the recorded calls in the picked folder, newest first.
+ * Lists and deletes the recorded calls in the picked folder.
  *
- * It goes through the tree URI rather than the path: under scoped storage the app cannot read the
- * folder directly, even though the recorder writes to it.
+ * Everything goes through the tree URI rather than the path: under scoped storage the app cannot
+ * touch the folder directly, even though the recorder writes to it.
+ *
+ * Reading durations and looking up contacts means a few queries per recording, so callers should
+ * stay off the main thread.
  */
 object RecordingsLibrary {
 
@@ -32,18 +49,41 @@ object RecordingsLibrary {
 
         return children(context, treeUri, rootId)
             .filter { it.isDirectory }
-            .mapNotNull { folder ->
-                val mixed = children(context, treeUri, folder.documentId)
-                    .firstOrNull { it.name == MIXED_FILE }
-                    ?: return@mapNotNull null
-                Recording(
-                    name = folder.name,
-                    mixedUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, mixed.documentId),
-                    recordedAt = folder.lastModified,
-                )
-            }
+            .mapNotNull { folder -> recordingOf(context, treeUri, folder) }
             .sortedByDescending { it.recordedAt }
     }
+
+    /** Removes a recording, both sides and the mix with it. */
+    fun delete(context: Context, recording: Recording): Boolean = runCatching {
+        DocumentsContract.deleteDocument(context.contentResolver, recording.folderUri)
+    }.getOrDefault(false)
+
+    private fun recordingOf(context: Context, treeUri: Uri, folder: Entry): Recording? {
+        val mixed = children(context, treeUri, folder.documentId)
+            .firstOrNull { it.name == MIXED_FILE }
+            ?: return null
+
+        val mixedUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, mixed.documentId)
+        val number = RecordingLabel.number(folder.name)
+
+        return Recording(
+            name = folder.name,
+            folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folder.documentId),
+            mixedUri = mixedUri,
+            // The name says when the call started; the folder's timestamp says when it was touched.
+            recordedAt = RecordingLabel.startedAt(folder.name) ?: folder.lastModified,
+            durationMillis = durationOf(context, mixedUri),
+            number = number,
+            contact = number?.let { ContactLookup.of(context, it) },
+        )
+    }
+
+    private fun durationOf(context: Context, uri: Uri): Int = runCatching {
+        MediaMetadataRetriever().use { retriever ->
+            retriever.setDataSource(context, uri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt() ?: 0
+        }
+    }.getOrDefault(0)
 
     private data class Entry(
         val documentId: String,

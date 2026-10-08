@@ -24,6 +24,28 @@ object RecordingLabel {
         return number?.takeIf { it.isNotBlank() } ?: UNKNOWN_NUMBER
     }
 
+    /** The number on its own, for looking the caller up in the address book. */
+    fun number(fileName: String): String? =
+        NAME.find(fileName.removeSuffix(".m4a"))?.groupValues?.get(2)?.takeIf { it.isNotBlank() }
+
+    /** Which way the call went, when the call log managed to say. */
+    fun direction(fileName: String): String? =
+        NAME.find(fileName.removeSuffix(".m4a"))?.groupValues?.get(3)?.takeIf { it.isNotBlank() }
+
+    /** When the recording started, read from the name rather than from the file's timestamps. */
+    fun startedAt(fileName: String): Long? {
+        val stored = NAME.find(fileName.removeSuffix(".m4a"))?.groupValues?.get(1) ?: return null
+        return runCatching {
+            SimpleDateFormat(STORED_PATTERN, Locale.US).parse(stored)?.time
+        }.getOrNull()
+    }
+
+    /** The time of day, which is all that is left to say once recordings are grouped by day. */
+    fun timeOfDay(fileName: String): String {
+        val startedAt = startedAt(fileName) ?: return subtitle(fileName)
+        return SimpleDateFormat("HH:mm", Locale.US).format(startedAt)
+    }
+
     /** When it happened, and which way the call went. */
     fun subtitle(fileName: String): String {
         val match = NAME.find(fileName.removeSuffix(".m4a")) ?: return fileName

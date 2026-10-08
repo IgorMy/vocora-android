@@ -1,9 +1,11 @@
 package io.github.igormy.vocora.recorder.shell
 
+import android.app.PendingIntent
 import android.content.Context
 import android.util.Log
 import io.github.igormy.vocora.recorder.IVocoraRecorder
 import io.github.igormy.vocora.recorder.logic.CallLogEntry
+import io.github.igormy.vocora.recorder.logic.PhoneNumbers
 import io.github.igormy.vocora.recorder.logic.RecordingName
 import java.io.File
 import java.util.Date
@@ -34,9 +36,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     private val context: Context by lazy { ShellContext(baseContext ?: systemContext()) }
     private val recorder: CallAudioRecorder by lazy { CallAudioRecorder(context) }
     private val watcher: CallWatcher by lazy { CallWatcher(context) }
-    private val notifier: RecordingNotifier by lazy {
-        RecordingNotifier(context, onCancel = ::discardRecording)
-    }
+    private val notifier: RecordingNotifier by lazy { RecordingNotifier(context) }
 
     private var outputDirectory: File? = null
     private var currentFolder: File? = null
@@ -46,7 +46,14 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     private var watching = false
 
     @Volatile
+    private var blacklist: List<String> = emptyList()
+
+    @Volatile
     private var result: String = "nothing recorded yet"
+
+    override fun setBlacklist(numbers: List<String>?) {
+        blacklist = numbers.orEmpty()
+    }
 
     override fun isWatching(): Boolean = watching
 
@@ -54,7 +61,8 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
 
     override fun lastResult(): String = result
 
-    override fun startWatching(outputDirectory: String) {
+    override fun startWatching(outputDirectory: String, cancelAction: PendingIntent?) {
+        notifier.cancelAction = cancelAction
         if (watching) return
         this.outputDirectory = File(outputDirectory).apply { mkdirs() }
         watching = true
@@ -115,7 +123,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         val folder = File(directory, RecordingName.forStart(Date()))
         currentFolder = folder
         result = if (recorder.start(folder)) {
-            notifier.show(folder.name)
+            notifier.show()
             "recording ${folder.name}"
         } else {
             currentFolder = null
@@ -128,18 +136,32 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         if (!recorder.isRecording) return
         recorder.stop()
         notifier.hide()
-        val folder = currentFolder?.let(::addCallDetails)
-        currentFolder = folder
-        result = "${recorder.lastResult}${folder?.let { " → ${it.name}" }.orEmpty()}"
+
+        val folder = currentFolder
+        currentFolder = null
+        if (folder == null) return
+
+        // Who it was with is only known now, so a blacklisted call is recorded and then dropped.
+        val entry = awaitNewCallLogEntry()
+        if (entry != null && PhoneNumbers.isListed(entry.number, blacklist)) {
+            val deleted = folder.deleteRecursively()
+            result = "dropped: ${entry.number} is blacklisted" +
+                if (deleted) "" else ", but ${folder.name} could not be deleted"
+            Log.i(TAG, result)
+            return
+        }
+
+        val named = entry?.let { rename(folder, it) } ?: folder
+        currentFolder = named
+        result = "${recorder.lastResult} → ${named.name}"
     }
 
     /**
      * The call log only learns about a call once it is over, and with a small delay, so who it was
      * with is added by renaming. Without it the date alone is still a usable name.
      */
-    private fun addCallDetails(folder: File): File {
+    private fun rename(folder: File, entry: CallLogEntry): File {
         if (!folder.exists()) return folder
-        val entry = awaitNewCallLogEntry() ?: return folder
         val renamed = File(
             folder.parentFile,
             RecordingName.withCallDetails(folder.name, entry.number, entry.direction),

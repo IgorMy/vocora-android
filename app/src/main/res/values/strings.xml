@@ -21,11 +21,27 @@
     <string name="recorder_grant">Grant Shizuku access</string>
     <string name="recorder_permission_explained">Vocora records calls through Shizuku, which has to allow it first.</string>
     <string name="recordings_empty">No recordings yet</string>
+    <string name="recordings_loading">Reading your recordings…</string>
+    <string name="delete_recording_title">Delete the call with %1$s?</string>
+    <string name="delete_recording_explained">Both sides and the mix go with it. This cannot be undone.</string>
+    <string name="delete_recording_confirm">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="blacklist_remove_title">Remove %1$s from the list?</string>
+    <string name="blacklist_remove_explained">Calls with this number will be recorded again.</string>
+    <string name="blacklist_remove_confirm">Remove</string>
     <string name="recordings_folder_reselect">Choose the folder again to list what is in it. The previous version only stored its path.</string>
     <string name="recorder_toggle">Record calls</string>
     <string name="recorder_state_recording">Recording a call…</string>
     <string name="recorder_state_watching">Waiting for a call</string>
     <string name="recorder_state_off">Not recording calls</string>
+    <string name="blacklist_title">Do not record</string>
+    <string name="blacklist_explained">Calls with these numbers are thrown away as soon as the call ends.</string>
+    <string name="blacklist_number">Number</string>
+    <string name="blacklist_add">Add</string>
+    <string name="blacklist_pick_contact">Pick a contact</string>
+    <string name="blacklist_empty">Nobody is on the list</string>
+    <string name="blacklist_remove">Remove from the list</string>
+
     <string name="recorder_choose_folder">Choose folder</string>
     <string name="recorder_folder">Saving to %1$s</string>
     <string name="recorder_folder_required">Choose a folder before recording calls</string>

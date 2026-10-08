@@ -55,10 +55,6 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         blacklist = numbers.orEmpty()
     }
 
-    override fun showTestNotification(visible: Boolean) {
-        if (visible) notifier.show() else notifier.hide()
-    }
-
     override fun isWatching(): Boolean = watching
 
     override fun isRecording(): Boolean = recorder.isRecording

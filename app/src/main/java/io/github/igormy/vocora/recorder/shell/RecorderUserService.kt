@@ -130,7 +130,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         val folder = File(directory, RecordingName.forStart(Date()))
         currentFolder = folder
         result = if (recorder.start(folder)) {
-            notifier.show(folder.name)
+            notifier.show()
             "recording ${folder.name}"
         } else {
             currentFolder = null

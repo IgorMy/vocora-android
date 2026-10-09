@@ -35,7 +35,9 @@
     <string name="recorder_state_watching">Waiting for a call</string>
     <string name="recorder_state_off">Not recording calls</string>
     <string name="blacklist_title">Do not record</string>
-    <string name="blacklist_explained">Calls with these numbers are thrown away as soon as the call ends.</string>
+    <string name="blacklist_identify_on">Calls are identified as they start, so these are never recorded.</string>
+    <string name="blacklist_identify_off">Without notification access, these calls are recorded and deleted when they end.</string>
+    <string name="blacklist_identify_grant">Give notification access</string>
     <string name="blacklist_number">Number</string>
     <string name="blacklist_add">Add</string>
     <string name="blacklist_pick_contact">Pick a contact</string>

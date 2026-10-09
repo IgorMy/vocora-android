@@ -5,6 +5,8 @@ import android.content.Context
 import android.util.Log
 import io.github.igormy.vocora.recorder.IVocoraRecorder
 import io.github.igormy.vocora.recorder.logic.CallLogEntry
+import io.github.igormy.vocora.recorder.logic.BlacklistMatch
+import io.github.igormy.vocora.recorder.logic.CallIdentity
 import io.github.igormy.vocora.recorder.logic.PhoneNumbers
 import io.github.igormy.vocora.recorder.logic.RecordingName
 import java.io.File
@@ -46,13 +48,37 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     private var watching = false
 
     @Volatile
-    private var blacklist: List<String> = emptyList()
+    private var blacklistNumbers: List<String> = emptyList()
+
+    @Volatile
+    private var blacklistNames: List<String> = emptyList()
+
+    @Volatile
+    private var currentCall = CallIdentity(null, null)
 
     @Volatile
     private var result: String = "nothing recorded yet"
 
-    override fun setBlacklist(numbers: List<String>?) {
-        blacklist = numbers.orEmpty()
+    override fun setBlacklist(numbers: List<String>?, names: List<String>?) {
+        blacklistNumbers = numbers.orEmpty()
+        blacklistNames = names.orEmpty()
+        Log.i(TAG, "blacklist: ${blacklistNumbers.size} numbers, ${blacklistNames.size} names")
+    }
+
+    /**
+     * The dialer's notification arrives a moment after the audio mode says a call is up, so by the
+     * time anyone knows who it is with the recording has already started. Checking here as well as
+     * at the start means a blacklisted call is dropped within that second rather than kept.
+     */
+    override fun setCurrentCall(number: String?, name: String?) {
+        currentCall = CallIdentity(number, name)
+        if (!recorder.isRecording) return
+        if (!BlacklistMatch.isBlocked(currentCall, blacklistNumbers, blacklistNames)) return
+
+        Log.i(TAG, "identified as ${name ?: number}, which is blacklisted")
+        discardRecording()
+        // Says why nothing is being kept, and stays up for as long as the call does.
+        notifier.showBlocked(name ?: number)
     }
 
     override fun isWatching(): Boolean = watching
@@ -107,7 +133,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         val folder = currentFolder
         currentFolder = null
         val deleted = folder?.deleteRecursively() ?: false
-        result = "recording discarded" + if (folder != null && !deleted) {
+        result = "recording dropped" + if (folder != null && !deleted) {
             ", but ${folder.name} could not be deleted"
         } else {
             ""
@@ -119,6 +145,15 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
     private fun onCallStarted() {
         if (recorder.isRecording) return
         val directory = outputDirectory ?: return
+
+        // Known only when the notification listener is on. Without it the call is recorded and
+        // dropped at hang up instead, which ends the same way with a file in between.
+        if (BlacklistMatch.isBlocked(currentCall, blacklistNumbers, blacklistNames)) {
+            result = "not recording: ${currentCall.name ?: currentCall.number} is blacklisted"
+            Log.i(TAG, result)
+            notifier.showBlocked(currentCall.name ?: currentCall.number)
+            return
+        }
 
         // Remembered so that the entry this call adds can be told apart from the previous one.
         callLogDateBeforeCall = CallLogReader.latest()?.date ?: 0
@@ -136,9 +171,11 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
 
     @Synchronized
     private fun onCallEnded() {
+        // Taken down whether a recording was running or the call was one Vocora refused to keep.
+        notifier.hide()
+        currentCall = CallIdentity(null, null)
         if (!recorder.isRecording) return
         recorder.stop()
-        notifier.hide()
 
         val folder = currentFolder
         currentFolder = null
@@ -146,7 +183,7 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
 
         // Who it was with is only known now, so a blacklisted call is recorded and then dropped.
         val entry = awaitNewCallLogEntry()
-        if (entry != null && PhoneNumbers.isListed(entry.number, blacklist)) {
+        if (entry != null && PhoneNumbers.isListed(entry.number, blacklistNumbers)) {
             val deleted = folder.deleteRecursively()
             result = "dropped: ${entry.number} is blacklisted" +
                 if (deleted) "" else ", but ${folder.name} could not be deleted"

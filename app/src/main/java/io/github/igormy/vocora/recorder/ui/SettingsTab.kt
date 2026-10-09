@@ -2,6 +2,7 @@ package io.github.igormy.vocora.recorder.ui
 
 import android.content.Intent
 import android.provider.ContactsContract
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -29,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import io.github.igormy.vocora.R
 import io.github.igormy.vocora.recorder.client.Blacklist
 import io.github.igormy.vocora.recorder.client.BlacklistEntry
+import io.github.igormy.vocora.recorder.client.CallNotificationListener
 import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.ContactLookup
 import io.github.igormy.vocora.recorder.client.RecorderStatus
@@ -55,6 +58,7 @@ fun SettingsTab(
     var blacklist by remember { mutableStateOf(emptyList<BlacklistEntry>()) }
     var typedNumber by remember { mutableStateOf("") }
     var pendingRemoval by remember { mutableStateOf<BlacklistEntry?>(null) }
+    var identifiesCalls by remember { mutableStateOf(CallNotificationListener.isEnabled(context)) }
 
     // Sent to the recorder right away, so an edit applies to the very next call rather than to the
     // next time the app happens to be opened.
@@ -68,6 +72,12 @@ fun SettingsTab(
 
     LaunchedEffect(Unit) {
         blacklist = withContext(Dispatchers.IO) { Blacklist.entriesWithContacts(context) }
+    }
+
+    // Granting happens in the system settings, so the answer only arrives on coming back.
+    LifecycleResumeEffect(Unit) {
+        identifiesCalls = CallNotificationListener.isEnabled(context)
+        onPauseOrDispose { }
     }
 
     val pickContact = rememberLauncherForActivityResult(
@@ -139,6 +149,10 @@ fun SettingsTab(
 
         BlacklistSection(
             entries = blacklist,
+            identifiesCalls = identifiesCalls,
+            onGrantIdentify = {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
             typedNumber = typedNumber,
             onTypedNumberChange = { typedNumber = it },
             onAddTyped = {

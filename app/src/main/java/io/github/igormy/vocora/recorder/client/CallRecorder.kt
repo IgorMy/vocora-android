@@ -80,7 +80,7 @@ object CallRecorder {
             ?: throw IllegalStateException("no folder has been chosen")
         setEnabled(context, true)
         return withService {
-            it.setBlacklist(Blacklist.numbers(context))
+            it.setBlacklist(Blacklist.numbers(context), Blacklist.names(context))
             it.startWatching(folder, cancelAction(context))
             it.status()
         }
@@ -97,7 +97,7 @@ object CallRecorder {
         val folder = RecordingsFolder.path(context)
         when {
             isEnabled(context) && folder != null && !recorder.isWatching -> {
-                recorder.setBlacklist(Blacklist.numbers(context))
+                recorder.setBlacklist(Blacklist.numbers(context), Blacklist.names(context))
                 recorder.startWatching(folder, cancelAction(context))
             }
 
@@ -111,7 +111,11 @@ object CallRecorder {
 
     /** Sends the list again after it is edited, so a change applies to the very next call. */
     suspend fun updateBlacklist(context: Context): Unit =
-        withService { it.setBlacklist(Blacklist.numbers(context)) }
+        withService { it.setBlacklist(Blacklist.numbers(context), Blacklist.names(context)) }
+
+    /** Tells the recorder who the call in progress is with, or that there is none. */
+    suspend fun setCurrentCall(number: String?, name: String?): Unit =
+        withService { it.setCurrentCall(number, name) }
 
     /** Drops the recording of the call in progress, keeping the recorder armed for the next one. */
     suspend fun cancelCurrentRecording(): Unit = withService { it.cancelCurrentRecording() }

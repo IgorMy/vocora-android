@@ -48,6 +48,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- Reads who a call is with from the dialer's notification. Bound by the system only
+             after the user grants notification access by hand. -->
+        <service
+            android:name=".recorder.client.CallNotificationListener"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

@@ -29,8 +29,16 @@ interface IVocoraRecorder {
     /** Stops recording this call and deletes what it recorded. Keeps watching for the next one. */
     void cancelCurrentRecording() = 6;
 
-    /** Numbers whose calls are thrown away as soon as the call log says who it was. */
-    void setBlacklist(in List<String> numbers) = 7;
+    /** Who not to record, by number and by the name their contact goes by. */
+    void setBlacklist(in List<String> numbers, in List<String> names) = 7;
+
+    /**
+     * Who the call in progress is with, read from the dialer's notification, or null when it ends.
+     *
+     * Knowing this before the call is over is what lets a blacklisted call never be recorded rather
+     * than recorded and deleted.
+     */
+    void setCurrentCall(String number, String name) = 8;
 
     /** Called by the Shizuku server when the user service is torn down. */
     void destroy() = 16777114;

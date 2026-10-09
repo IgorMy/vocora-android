@@ -31,6 +31,8 @@ private val SMALL_AVATAR = 36.dp
 @Composable
 fun BlacklistSection(
     entries: List<BlacklistEntry>,
+    identifiesCalls: Boolean,
+    onGrantIdentify: () -> Unit,
     typedNumber: String,
     onTypedNumberChange: (String) -> Unit,
     onAddTyped: () -> Unit,
@@ -44,10 +46,18 @@ fun BlacklistSection(
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
-            text = stringResource(R.string.blacklist_explained),
+            text = stringResource(
+                if (identifiesCalls) R.string.blacklist_identify_on else R.string.blacklist_identify_off,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        if (!identifiesCalls) {
+            TextButton(onClick = onGrantIdentify) {
+                Text(stringResource(R.string.blacklist_identify_grant))
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

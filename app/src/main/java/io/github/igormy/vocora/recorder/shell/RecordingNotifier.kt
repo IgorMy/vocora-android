@@ -46,7 +46,15 @@ class RecordingNotifier(private val context: Context) {
      */
     var cancelAction: PendingIntent? = null
 
-    fun show() {
+    fun show() = post(text = "Recording call", withCancel = true)
+
+    /** Replaces the recording notice when a call turns out to be with someone on the list. */
+    fun showBlocked(who: String?) = post(
+        text = who?.let { "Not recording: $it is blacklisted" } ?: "Not recording: blacklisted",
+        withCancel = false,
+    )
+
+    private fun post(text: String, withCancel: Boolean) {
         val manager = manager ?: return
         try {
             manager.createNotificationChannel(
@@ -61,13 +69,13 @@ class RecordingNotifier(private val context: Context) {
                 .setSmallIcon(RecordingIcon.microphone())
                 .setContentTitle("Vocora")
                 // Short on purpose: a second line pushes the action out of the collapsed card.
-                .setContentText("Recording call")
+                .setContentText(text)
                 // Not ongoing: HyperOS draws ongoing notifications compact and drops their actions
                 // when expanded. Being dismissable costs only the indicator, never the recording.
                 .setOngoing(false)
                 .setShowWhen(true)
 
-            cancelAction?.let { builder.addAction(cancelButton(it)) }
+            if (withCancel) cancelAction?.let { builder.addAction(cancelButton(it)) }
             manager.notify(NOTIFICATION_ID, builder.build())
         } catch (e: Exception) {
             Log.i(TAG, "could not show the recording notification: ${e.javaClass.simpleName}: ${e.message}")

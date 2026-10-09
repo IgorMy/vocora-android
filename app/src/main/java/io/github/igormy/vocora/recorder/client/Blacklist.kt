@@ -42,6 +42,10 @@ object Blacklist {
 
     fun numbers(context: Context): List<String> = entries(context).map { it.number }
 
+    /** The names their contacts go by, for matching a call the dialer only named. */
+    fun names(context: Context): List<String> =
+        entriesWithContacts(context).mapNotNull { it.contact?.name ?: it.label }
+
     fun add(context: Context, number: String, label: String?) {
         val cleaned = number.trim()
         if (cleaned.isEmpty()) return

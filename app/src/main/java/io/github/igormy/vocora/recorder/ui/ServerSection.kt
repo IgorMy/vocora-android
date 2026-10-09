@@ -34,10 +34,12 @@ enum class ServerAnswer { UNKNOWN, ASKING, ALIVE, SILENT }
 @Composable
 fun ServerSection(
     url: String,
+    apiVersion: String,
     token: String,
     wifiOnly: Boolean,
     answer: ServerAnswer,
     onUrlChange: (String) -> Unit,
+    onApiVersionChange: (String) -> Unit,
     onTokenChange: (String) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
     onCheck: () -> Unit,
@@ -62,6 +64,15 @@ fun ServerSection(
             label = { Text(stringResource(R.string.server_url)) },
             placeholder = { Text(stringResource(R.string.server_url_hint)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        )
+
+        OutlinedTextField(
+            value = apiVersion,
+            onValueChange = onApiVersionChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text(stringResource(R.string.server_api_version)) },
+            supportingText = { Text(stringResource(R.string.server_api_version_explained)) },
         )
 
         OutlinedTextField(

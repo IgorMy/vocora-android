@@ -46,14 +46,25 @@ object VocoraServer {
             .build()
     }
 
-    /** Whether the server answers. The liveness endpoint is public, so the token is not needed. */
+    /**
+     * Whether the server answers.
+     *
+     * Liveness sits outside the versioned API on purpose, so that its path does not move when the
+     * API does. It is public too, so the token is not needed to ask.
+     */
     suspend fun isAlive(context: Context): Boolean = withContext(Dispatchers.IO) {
         val url = ServerSettings.url(context) ?: return@withContext false
         runCatching {
-            client.newCall(Request.Builder().url("$url/server/live").build())
+            client.newCall(Request.Builder().url("$url/health/server/live").build())
                 .execute()
                 .use { it.isSuccessful }
         }.getOrDefault(false)
+    }
+
+    /** The recordings live under the major version the server runs, and that is a setting. */
+    private fun apiUrl(context: Context, path: String): String? {
+        val url = ServerSettings.url(context) ?: return null
+        return "$url/${ServerSettings.apiVersion(context)}$path"
     }
 
     /**
@@ -63,9 +74,9 @@ object VocoraServer {
      * its offset, and a `+` written into a query means a space by the time the server reads it.
      */
     fun get(context: Context, path: String, params: Map<String, String> = emptyMap()): String? {
-        val url = ServerSettings.url(context) ?: return null
+        val url = apiUrl(context, path) ?: return null
         val token = ServerSettings.token(context) ?: return null
-        val built = ("$url$path").toHttpUrlOrNull()?.newBuilder()?.apply {
+        val built = url.toHttpUrlOrNull()?.newBuilder()?.apply {
             params.forEach { (name, value) -> addQueryParameter(name, value) }
         }?.build() ?: return null
 
@@ -83,13 +94,13 @@ object VocoraServer {
         context: Context,
         recording: RecordingEntity,
     ): UploadOutcome = withContext(Dispatchers.IO) {
-        val url = ServerSettings.url(context) ?: return@withContext UploadOutcome.LATER
+        val url = apiUrl(context, "/recording") ?: return@withContext UploadOutcome.LATER
         val token = ServerSettings.token(context) ?: return@withContext UploadOutcome.LATER
         // Files that are no longer there will never upload, and the row is about to go anyway.
         val body = RecordingUpload.bodyOf(context, recording) ?: return@withContext UploadOutcome.REFUSED
 
         val request = Request.Builder()
-            .url("$url/recording")
+            .url(url)
             .header("Authorization", "Bearer $token")
             .post(body)
             .build()

@@ -5,9 +5,13 @@ import android.content.Context
 private const val PREFERENCES = "vocora"
 private const val KEY_URL = "server_url"
 private const val KEY_TOKEN = "server_token"
+private const val KEY_API_VERSION = "server_api_version"
 private const val KEY_WIFI_ONLY = "server_wifi_only"
 private const val KEY_SYNCED_AT = "server_synced_at"
 private const val KEY_SYNCED_URL = "server_synced_url"
+
+/** The server's recordings live under the major version it runs, and today that is this one. */
+private const val DEFAULT_API_VERSION = "v0"
 
 /**
  * Where the server is, how to prove who is asking, and over which network.
@@ -20,6 +24,26 @@ object ServerSettings {
     /** The address, without the trailing slash, so paths can be appended without thinking. */
     fun url(context: Context): String? =
         preferences(context).getString(KEY_URL, null)?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Which API the recordings are asked for, as a path segment.
+     *
+     * The server puts them under the major version it runs, `/v0` for a 0.x server, and only moves
+     * them on a breaking release. Nothing announces it, so it is told rather than discovered, and a
+     * bare number is taken to mean the same thing as the same number with its v.
+     */
+    fun apiVersion(context: Context): String {
+        val typed = preferences(context).getString(KEY_API_VERSION, null)
+            ?.trim()?.trim('/')?.takeIf { it.isNotEmpty() }
+            ?: return DEFAULT_API_VERSION
+        return if (typed.first().isDigit()) "v$typed" else typed
+    }
+
+    fun setApiVersion(context: Context, version: String) =
+        preferences(context).edit().putString(KEY_API_VERSION, version).apply()
+
+    fun typedApiVersion(context: Context): String =
+        preferences(context).getString(KEY_API_VERSION, DEFAULT_API_VERSION).orEmpty()
 
     fun token(context: Context): String? =
         preferences(context).getString(KEY_TOKEN, null)?.trim()?.takeIf { it.isNotEmpty() }

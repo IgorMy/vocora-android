@@ -63,6 +63,7 @@ fun SettingsTab(
     var pendingRemoval by remember { mutableStateOf<BlacklistEntry?>(null) }
     var identifiesCalls by remember { mutableStateOf(CallNotificationListener.isEnabled(context)) }
     var serverUrl by remember { mutableStateOf(ServerSettings.typedUrl(context)) }
+    var serverApiVersion by remember { mutableStateOf(ServerSettings.typedApiVersion(context)) }
     var serverToken by remember { mutableStateOf(ServerSettings.typedToken(context)) }
     var wifiOnly by remember { mutableStateOf(ServerSettings.wifiOnly(context)) }
     var serverAnswer by remember { mutableStateOf(ServerAnswer.UNKNOWN) }
@@ -156,6 +157,7 @@ fun SettingsTab(
 
         ServerSection(
             url = serverUrl,
+            apiVersion = serverApiVersion,
             token = serverToken,
             wifiOnly = wifiOnly,
             answer = serverAnswer,
@@ -164,6 +166,11 @@ fun SettingsTab(
             onUrlChange = {
                 serverUrl = it
                 ServerSettings.setUrl(context, it)
+                serverAnswer = ServerAnswer.UNKNOWN
+            },
+            onApiVersionChange = {
+                serverApiVersion = it
+                ServerSettings.setApiVersion(context, it)
                 serverAnswer = ServerAnswer.UNKNOWN
             },
             onTokenChange = {

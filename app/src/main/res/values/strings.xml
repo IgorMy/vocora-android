@@ -57,6 +57,8 @@
     <string name="server_title">Server</string>
     <string name="server_url">Server address</string>
     <string name="server_url_hint">http://192.168.1.10:8000</string>
+    <string name="server_api_version">API version</string>
+    <string name="server_api_version_explained">The path recordings live under. A 0.x server uses v0.</string>
     <string name="server_token">Token</string>
     <string name="server_token_show">Show</string>
     <string name="server_token_hide">Hide</string>

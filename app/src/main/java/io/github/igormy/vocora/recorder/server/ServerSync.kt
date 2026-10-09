@@ -52,7 +52,9 @@ object ServerSync {
      * else, every one of them is about a recording that machine has never seen.
      */
     suspend fun forgetOtherServer(context: Context) = withContext(Dispatchers.IO) {
-        val url = ServerSettings.url(context) ?: return@withContext
+        // The version is part of it: the same host on another API is another server's answers.
+        val url = ServerSettings.url(context)?.let { "$it/${ServerSettings.apiVersion(context)}" }
+            ?: return@withContext
         if (url == ServerSettings.syncedUrl(context)) return@withContext
 
         VocoraDatabase.of(context).recordings().forgetServer()

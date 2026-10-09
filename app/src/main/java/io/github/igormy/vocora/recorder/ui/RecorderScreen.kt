@@ -14,6 +14,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,10 +33,8 @@ import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecorderStatus
 import io.github.igormy.vocora.recorder.client.RecordingsFolder
-import io.github.igormy.vocora.recorder.client.RecordingsLibrary
-import kotlinx.coroutines.Dispatchers
+import io.github.igormy.vocora.recorder.store.RecordingIndex
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
 private const val TAB_RECORDINGS = 0
@@ -56,19 +55,22 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
     var folder by remember { mutableStateOf(RecordingsFolder.path(context)) }
     var enabled by remember { mutableStateOf(CallRecorder.isEnabled(context)) }
     var status by remember { mutableStateOf(RecorderStatus()) }
-    var recordings by remember { mutableStateOf(emptyList<Recording>()) }
-    var recordingsRead by remember { mutableStateOf(false) }
+    var recordings by remember { mutableStateOf<List<Recording>?>(null) }
+    var reconciling by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // Listing reads durations and the address book, which is too much for the main thread. It is
-    // suspending so that whoever changed something can wait for the list to catch up.
-    suspend fun reloadRecordings() {
-        recordings = withContext(Dispatchers.IO) { RecordingsLibrary.list(context) }
-        recordingsRead = true
+    // The database says what there is as soon as it is asked, and keeps saying it: every change
+    // made here comes back through this, so nothing has to re-read the list by hand.
+    LaunchedEffect(Unit) {
+        RecordingIndex.stream(context).collect { recordings = it }
     }
 
     fun refresh() {
-        scope.launch { reloadRecordings() }
+        scope.launch {
+            reconciling = true
+            RecordingIndex.reconcile(context)
+            reconciling = false
+        }
         scope.launch {
             runCatching { CallRecorder.syncWithPreference(context) }
                 .onSuccess { status = it; error = null }
@@ -122,12 +124,23 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
             )
         }
 
+        val listed = recordings
         when (selectedTab) {
             TAB_RECORDINGS -> RecordingsTab(
-                recordings = recordings,
-                loading = !recordingsRead,
+                recordings = listed.orEmpty(),
+                // Nothing to show is only worth saying once the disk has been looked at.
+                loading = listed == null || (listed.isEmpty() && reconciling),
                 needsFolderAgain = folder != null && RecordingsFolder.treeUri(context) == null,
-                onChanged = ::reloadRecordings,
+                onDelete = { recording ->
+                    RecordingIndex.delete(context, recording)
+                    // Removed here as well so the list has already lost it by the time the sheet
+                    // closes, instead of waiting for the database to say so.
+                    recordings = recordings?.filterNot { it.name == recording.name }
+                },
+                onContactsGranted = {
+                    RecordingIndex.forgetContacts()
+                    recordings = RecordingIndex.read(context)
+                },
             )
 
             else -> SettingsTab(

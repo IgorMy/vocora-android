@@ -31,26 +31,40 @@ data class Recording(
     val day: Long get() = RecordingDay.startOfDay(recordedAt)
 }
 
+/** A recording folder as the disk shows it, before the index adds what costs time to read. */
+data class RecordingFolder(
+    val name: String,
+    val folderUri: Uri,
+    val mixedUri: Uri,
+    val recordedAt: Long,
+)
+
 /**
- * Lists and deletes the recorded calls in the picked folder.
+ * Looks at the recording folders on disk and deletes them.
  *
  * Everything goes through the tree URI rather than the path: under scoped storage the app cannot
  * touch the folder directly, even though the recorder writes to it.
  *
- * Reading durations and looking up contacts means a few queries per recording, so callers should
- * stay off the main thread.
+ * This is the slow half of listing recordings, which is why it is no longer what the list reads
+ * from. Walking the folders is a query each, and measuring a recording means decoding its header;
+ * the database keeps the answers so only new folders pay for it. Callers belong off the main thread.
  */
 object RecordingsLibrary {
 
-    fun list(context: Context): List<Recording> {
+    /**
+     * Every folder that holds a finished recording.
+     *
+     * A folder without its mix is skipped rather than reported empty: that is a call still being
+     * recorded, and it shows up on a later look once the recorder has muxed it.
+     */
+    fun folders(context: Context): List<RecordingFolder> {
         val treeUri = RecordingsFolder.treeUri(context) ?: return emptyList()
         val rootId = runCatching { DocumentsContract.getTreeDocumentId(treeUri) }.getOrNull()
             ?: return emptyList()
 
         return children(context, treeUri, rootId)
             .filter { it.isDirectory }
-            .mapNotNull { folder -> recordingOf(context, treeUri, folder) }
-            .sortedByDescending { it.recordedAt }
+            .mapNotNull { folder -> folderOf(context, treeUri, folder) }
     }
 
     /** Removes a recording, both sides and the mix with it. */
@@ -58,32 +72,27 @@ object RecordingsLibrary {
         DocumentsContract.deleteDocument(context.contentResolver, recording.folderUri)
     }.getOrDefault(false)
 
-    private fun recordingOf(context: Context, treeUri: Uri, folder: Entry): Recording? {
+    /** How long a recording lasts, read from the file because nothing else knows. */
+    fun duration(context: Context, mixedUri: Uri): Int = runCatching {
+        MediaMetadataRetriever().use { retriever ->
+            retriever.setDataSource(context, mixedUri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt() ?: 0
+        }
+    }.getOrDefault(0)
+
+    private fun folderOf(context: Context, treeUri: Uri, folder: Entry): RecordingFolder? {
         val mixed = children(context, treeUri, folder.documentId)
             .firstOrNull { it.name == MIXED_FILE }
             ?: return null
 
-        val mixedUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, mixed.documentId)
-        val number = RecordingLabel.number(folder.name)
-
-        return Recording(
+        return RecordingFolder(
             name = folder.name,
             folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folder.documentId),
-            mixedUri = mixedUri,
+            mixedUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, mixed.documentId),
             // The name says when the call started; the folder's timestamp says when it was touched.
             recordedAt = RecordingLabel.startedAt(folder.name) ?: folder.lastModified,
-            durationMillis = durationOf(context, mixedUri),
-            number = number,
-            contact = number?.let { ContactLookup.of(context, it) },
         )
     }
-
-    private fun durationOf(context: Context, uri: Uri): Int = runCatching {
-        MediaMetadataRetriever().use { retriever ->
-            retriever.setDataSource(context, uri)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt() ?: 0
-        }
-    }.getOrDefault(0)
 
     private data class Entry(
         val documentId: String,

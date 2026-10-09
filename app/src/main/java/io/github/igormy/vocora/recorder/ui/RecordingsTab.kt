@@ -28,12 +28,9 @@ import io.github.igormy.vocora.R
 import io.github.igormy.vocora.recorder.client.PLAYBACK_SPEEDS
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecordingPlayer
-import io.github.igormy.vocora.recorder.client.RecordingsLibrary
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** Often enough that the bar moves smoothly, rarely enough to be free. */
 private const val PLAYBACK_REFRESH_MILLIS = 200L
@@ -44,7 +41,8 @@ fun RecordingsTab(
     recordings: List<Recording>,
     loading: Boolean,
     needsFolderAgain: Boolean,
-    onChanged: suspend () -> Unit,
+    onDelete: suspend (Recording) -> Unit,
+    onContactsGranted: suspend () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -63,7 +61,7 @@ fun RecordingsTab(
     // Names and faces come from the address book, so ask once and re-read the list if granted.
     val askContacts = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> if (granted) scope.launch { onChanged() } }
+    ) { granted -> if (granted) scope.launch { onContactsGranted() } }
 
     LaunchedEffect(Unit) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
@@ -171,13 +169,12 @@ fun RecordingsTab(
             confirmLabel = stringResource(R.string.delete_recording_confirm),
             working = deleting,
             onConfirm = {
-                // The sheet stays up and locked until the list has been read back, so it never
-                // closes onto a list that still shows what was just deleted.
+                // The sheet stays up and locked until the list has lost it, so it never closes
+                // onto a list that still shows what was just deleted.
                 deleting = true
                 if (selected?.name == recording.name) close()
                 scope.launch {
-                    withContext(Dispatchers.IO) { RecordingsLibrary.delete(context, recording) }
-                    onChanged()
+                    onDelete(recording)
                     deleting = false
                     pendingDelete = null
                 }

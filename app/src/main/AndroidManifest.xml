@@ -46,6 +46,11 @@
             android:name=".recorder.client.CancelRecordingReceiver"
             android:exported="false" />
 
+        <!-- Private as well: it is the recorder saying a call has just finished. -->
+        <receiver
+            android:name=".recorder.client.CallEndedReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".recorder.client.BootReceiver"
             android:exported="true">

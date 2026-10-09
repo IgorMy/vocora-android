@@ -40,6 +40,9 @@ interface IVocoraRecorder {
      */
     void setCurrentCall(String number, String name) = 8;
 
+    /** Fired when a call ends, so the app wakes up and sends what was just recorded. */
+    void setCallEndedAction(in PendingIntent action) = 9;
+
     /** Called by the Shizuku server when the user service is torn down. */
     void destroy() = 16777114;
 }

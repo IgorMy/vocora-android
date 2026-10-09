@@ -87,6 +87,18 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
 
     override fun lastResult(): String = result
 
+    /**
+     * What to fire once a call is over, so the app can send it.
+     *
+     * Uploads happen in the app, which is usually not running while a call is recorded. Firing this
+     * starts it, the same way the notification's cancel button does.
+     */
+    private var callEndedAction: PendingIntent? = null
+
+    override fun setCallEndedAction(action: PendingIntent?) {
+        callEndedAction = action
+    }
+
     override fun startWatching(outputDirectory: String, cancelAction: PendingIntent?) {
         notifier.cancelAction = cancelAction
         if (watching) return
@@ -194,6 +206,10 @@ class RecorderUserService() : IVocoraRecorder.Stub() {
         val named = entry?.let { rename(folder, it) } ?: folder
         currentFolder = named
         result = "${recorder.lastResult} → ${named.name}"
+
+        // There is something to upload now, and only the app can upload it.
+        runCatching { callEndedAction?.send() }
+            .onFailure { Log.i(TAG, "could not wake the app: ${it.javaClass.simpleName}") }
     }
 
     /**

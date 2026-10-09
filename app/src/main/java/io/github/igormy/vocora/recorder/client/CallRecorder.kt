@@ -81,6 +81,7 @@ object CallRecorder {
         setEnabled(context, true)
         return withService {
             it.setBlacklist(Blacklist.numbers(context), Blacklist.names(context))
+            it.setCallEndedAction(callEndedAction(context))
             it.startWatching(folder, cancelAction(context))
             it.status()
         }
@@ -95,6 +96,9 @@ object CallRecorder {
     /** Re-arms the service when it should be watching but is not, after a reboot or an update. */
     suspend fun syncWithPreference(context: Context): RecorderStatus = withService { recorder ->
         val folder = RecordingsFolder.path(context)
+        // Handed over every time rather than only when arming: a recorder that was already watching
+        // survived this app being replaced, and the way back to it did not.
+        recorder.setCallEndedAction(callEndedAction(context))
         when {
             isEnabled(context) && folder != null && !recorder.isWatching -> {
                 recorder.setBlacklist(Blacklist.numbers(context), Blacklist.names(context))
@@ -131,6 +135,14 @@ object CallRecorder {
         context,
         0,
         Intent(context, CancelRecordingReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    /** Fired by the recorder when a call ends, for the same reason the cancel button is. */
+    private fun callEndedAction(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        1,
+        Intent(context, CallEndedReceiver::class.java),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

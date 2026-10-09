@@ -42,6 +42,13 @@ interface RecordingDao {
     @Query("UPDATE recordings SET transcription = :transcription, segments = :segments WHERE folder = :folder")
     suspend fun setTranscription(folder: String, transcription: String?, segments: String?)
 
+    /** Drops everything a server said, which is what a different server makes of all of it. */
+    @Query(
+        "UPDATE recordings SET serverId = NULL, serverStatus = NULL, transcription = NULL, " +
+            "segments = NULL, uploadState = 'PENDING'",
+    )
+    suspend fun forgetServer()
+
     @Query("SELECT * FROM recordings WHERE folder = :folder")
     suspend fun byFolder(folder: String): RecordingEntity?
 

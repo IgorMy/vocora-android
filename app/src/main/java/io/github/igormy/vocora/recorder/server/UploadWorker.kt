@@ -24,6 +24,9 @@ class UploadWorker(
         // Nothing to send to. Succeeding rather than retrying keeps the queue quiet until there is.
         if (!ServerSettings.isConfigured(context)) return Result.success()
 
+        // Done before anything is sent: a new address means none of these have been sent anywhere.
+        ServerSync.forgetOtherServer(context)
+
         val recordings = VocoraDatabase.of(context).recordings()
         for (recording in recordings.toUpload()) {
             recordings.setUploadState(recording.folder, UploadState.UPLOADING)

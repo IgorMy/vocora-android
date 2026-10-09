@@ -7,6 +7,7 @@ private const val KEY_URL = "server_url"
 private const val KEY_TOKEN = "server_token"
 private const val KEY_WIFI_ONLY = "server_wifi_only"
 private const val KEY_SYNCED_AT = "server_synced_at"
+private const val KEY_SYNCED_URL = "server_synced_url"
 
 /**
  * Where the server is, how to prove who is asking, and over which network.
@@ -47,8 +48,14 @@ object ServerSettings {
      */
     fun syncedAt(context: Context): String? = preferences(context).getString(KEY_SYNCED_AT, null)
 
-    fun setSyncedAt(context: Context, at: String) =
+    fun setSyncedAt(context: Context, at: String?) =
         preferences(context).edit().putString(KEY_SYNCED_AT, at).apply()
+
+    /** Which server the stored answers came from, so a change of address can be noticed. */
+    fun syncedUrl(context: Context): String? = preferences(context).getString(KEY_SYNCED_URL, null)
+
+    fun setSyncedUrl(context: Context, url: String) =
+        preferences(context).edit().putString(KEY_SYNCED_URL, url).apply()
 
     /** What the field shows, which is what was typed rather than what is usable. */
     fun typedUrl(context: Context): String = preferences(context).getString(KEY_URL, "").orEmpty()

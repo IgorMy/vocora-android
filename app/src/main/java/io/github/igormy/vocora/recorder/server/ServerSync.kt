@@ -45,6 +45,21 @@ object ServerSync {
     /** One page is plenty for a phone, and the server takes 200 at most anyway. */
     private const val PAGE = 200
 
+    /**
+     * Throws away what a different server said, and marks everything as needing to be sent again.
+     *
+     * Ids, statuses and transcriptions all belong to the server that gave them: pointed somewhere
+     * else, every one of them is about a recording that machine has never seen.
+     */
+    suspend fun forgetOtherServer(context: Context) = withContext(Dispatchers.IO) {
+        val url = ServerSettings.url(context) ?: return@withContext
+        if (url == ServerSettings.syncedUrl(context)) return@withContext
+
+        VocoraDatabase.of(context).recordings().forgetServer()
+        ServerSettings.setSyncedAt(context, null)
+        ServerSettings.setSyncedUrl(context, url)
+    }
+
     suspend fun refresh(context: Context) = withContext(Dispatchers.IO) {
         if (!ServerSettings.isConfigured(context)) return@withContext
 

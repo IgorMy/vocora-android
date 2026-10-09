@@ -38,6 +38,8 @@ import io.github.igormy.vocora.recorder.client.CallNotificationListener
 import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.ContactLookup
 import io.github.igormy.vocora.recorder.client.RecorderStatus
+import io.github.igormy.vocora.recorder.server.ServerSettings
+import io.github.igormy.vocora.recorder.server.VocoraServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,6 +61,10 @@ fun SettingsTab(
     var typedNumber by remember { mutableStateOf("") }
     var pendingRemoval by remember { mutableStateOf<BlacklistEntry?>(null) }
     var identifiesCalls by remember { mutableStateOf(CallNotificationListener.isEnabled(context)) }
+    var serverUrl by remember { mutableStateOf(ServerSettings.typedUrl(context)) }
+    var serverToken by remember { mutableStateOf(ServerSettings.typedToken(context)) }
+    var wifiOnly by remember { mutableStateOf(ServerSettings.wifiOnly(context)) }
+    var serverAnswer by remember { mutableStateOf(ServerAnswer.UNKNOWN) }
 
     // Sent to the recorder right away, so an edit applies to the very next call rather than to the
     // next time the app happens to be opened.
@@ -144,6 +150,40 @@ fun SettingsTab(
                 color = MaterialTheme.colorScheme.error,
             )
         }
+
+        HorizontalDivider()
+
+        ServerSection(
+            url = serverUrl,
+            token = serverToken,
+            wifiOnly = wifiOnly,
+            answer = serverAnswer,
+            // Written as they are typed: there is no save button, and a half typed address only
+            // means the next check fails, which is what the check is there to say.
+            onUrlChange = {
+                serverUrl = it
+                ServerSettings.setUrl(context, it)
+                serverAnswer = ServerAnswer.UNKNOWN
+            },
+            onTokenChange = {
+                serverToken = it
+                ServerSettings.setToken(context, it)
+            },
+            onWifiOnlyChange = {
+                wifiOnly = it
+                ServerSettings.setWifiOnly(context, it)
+            },
+            onCheck = {
+                serverAnswer = ServerAnswer.ASKING
+                scope.launch {
+                    serverAnswer = if (VocoraServer.isAlive(context)) {
+                        ServerAnswer.ALIVE
+                    } else {
+                        ServerAnswer.SILENT
+                    }
+                }
+            },
+        )
 
         HorizontalDivider()
 

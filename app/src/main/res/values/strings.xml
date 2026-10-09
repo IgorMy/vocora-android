@@ -44,6 +44,20 @@
     <string name="blacklist_empty">Nobody is on the list</string>
     <string name="blacklist_remove">Remove from the list</string>
 
+    <string name="server_title">Server</string>
+    <string name="server_url">Server address</string>
+    <string name="server_url_hint">http://192.168.1.10:8000</string>
+    <string name="server_token">Token</string>
+    <string name="server_token_show">Show</string>
+    <string name="server_token_hide">Hide</string>
+    <string name="server_wifi_only">Upload only over Wi-Fi</string>
+    <string name="server_wifi_only_explained">A ten minute call is around 15 MB, in three files.</string>
+    <string name="server_check">Check</string>
+    <string name="server_unknown">Both fields are needed to upload anything</string>
+    <string name="server_asking">Asking the server…</string>
+    <string name="server_alive">The server answers</string>
+    <string name="server_silent">No answer from the server</string>
+
     <string name="recorder_choose_folder">Choose folder</string>
     <string name="recorder_folder">Saving to %1$s</string>
     <string name="recorder_folder_required">Choose a folder before recording calls</string>

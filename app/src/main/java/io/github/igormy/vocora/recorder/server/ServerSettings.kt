@@ -6,6 +6,7 @@ private const val PREFERENCES = "vocora"
 private const val KEY_URL = "server_url"
 private const val KEY_TOKEN = "server_token"
 private const val KEY_WIFI_ONLY = "server_wifi_only"
+private const val KEY_SYNCED_AT = "server_synced_at"
 
 /**
  * Where the server is, how to prove who is asking, and over which network.
@@ -37,6 +38,17 @@ object ServerSettings {
 
     fun setWifiOnly(context: Context, wifiOnly: Boolean) =
         preferences(context).edit().putBoolean(KEY_WIFI_ONLY, wifiOnly).apply()
+
+    /**
+     * The last change the server reported, so the next sync only asks for what happened after it.
+     *
+     * The server's own clock, kept as it was written: comparing it against this phone's would only
+     * bring two clocks into a question that needs one.
+     */
+    fun syncedAt(context: Context): String? = preferences(context).getString(KEY_SYNCED_AT, null)
+
+    fun setSyncedAt(context: Context, at: String) =
+        preferences(context).edit().putString(KEY_SYNCED_AT, at).apply()
 
     /** What the field shows, which is what was typed rather than what is usable. */
     fun typedUrl(context: Context): String = preferences(context).getString(KEY_URL, "").orEmpty()

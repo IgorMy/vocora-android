@@ -21,8 +21,12 @@ data class RecordingEntity(
     val folderUri: String,
     val mixedUri: String,
     val uploadState: UploadState = UploadState.PENDING,
+    /** What the server calls it, learnt by asking rather than by uploading: the upload says nothing. */
+    val serverId: String? = null,
     /** What the server last said it was doing with it: pending, transcribing, done, failed. */
     val serverStatus: String? = null,
     /** Kept once downloaded, so opening a recording again does not ask for it twice. */
     val transcription: String? = null,
+    /** The transcription split by who was speaking, as the server sent it. */
+    val segments: String? = null,
 )

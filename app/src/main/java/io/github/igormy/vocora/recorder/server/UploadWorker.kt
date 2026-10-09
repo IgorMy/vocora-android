@@ -40,6 +40,9 @@ class UploadWorker(
                 }
             }
         }
+
+        // Uploading answers with nothing, so what became of a recording has to be asked for.
+        ServerSync.refresh(context)
         return Result.success()
     }
 }

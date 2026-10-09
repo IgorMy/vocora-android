@@ -16,7 +16,7 @@ private const val DATABASE_NAME = "vocora.db"
  * app is the only writer.
  */
 // No schema is exported: there are no migrations to check it against, by design.
-@Database(entities = [RecordingEntity::class], version = 2, exportSchema = false)
+@Database(entities = [RecordingEntity::class], version = 3, exportSchema = false)
 abstract class VocoraDatabase : RoomDatabase() {
 
     abstract fun recordings(): RecordingDao

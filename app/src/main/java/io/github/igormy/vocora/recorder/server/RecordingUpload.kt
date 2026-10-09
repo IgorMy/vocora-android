@@ -19,10 +19,10 @@ private const val UPLINK = "uplink.m4a"
 private const val DOWNLINK = "downlink.m4a"
 
 /** What the server calls a call whose number nobody could put a name or a number to. */
-private const val UNKNOWN_CONTACT = "unknown"
+internal const val UNKNOWN_CONTACT = "unknown"
 
 /** The only direction the server accepts when the call log did not say which way the call went. */
-private const val UNKNOWN_DIRECTION = "call"
+internal const val UNKNOWN_DIRECTION = "call"
 
 private val AUDIO = "audio/mp4".toMediaType()
 

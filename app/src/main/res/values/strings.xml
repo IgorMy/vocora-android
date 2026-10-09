@@ -44,6 +44,8 @@
     <string name="blacklist_empty">Nobody is on the list</string>
     <string name="blacklist_remove">Remove from the list</string>
 
+    <string name="transcript_loading">Fetching the transcription…</string>
+
     <string name="progress_not_uploaded">Not uploaded</string>
     <string name="progress_uploading">Uploading…</string>
     <string name="progress_uploaded">Uploaded</string>

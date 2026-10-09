@@ -29,7 +29,9 @@ import io.github.igormy.vocora.recorder.client.PLAYBACK_SPEEDS
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecordingPlayer
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
+import io.github.igormy.vocora.recorder.logic.Transcript
 import io.github.igormy.vocora.recorder.server.ServerSettings
+import io.github.igormy.vocora.recorder.server.Transcripts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -58,6 +60,8 @@ fun RecordingsTab(
     var position by remember { mutableIntStateOf(0) }
     var duration by remember { mutableIntStateOf(0) }
     var speed by remember { mutableFloatStateOf(player.speed) }
+    var transcript by remember { mutableStateOf<Transcript?>(null) }
+    var loadingTranscript by remember { mutableStateOf(false) }
 
     // Names and faces come from the address book, so ask once and re-read the list if granted.
     val askContacts = rememberLauncherForActivityResult(
@@ -75,11 +79,21 @@ fun RecordingsTab(
         selected = recording
         player.play(recording.mixedUri) { playing = false }
         playing = player.isPlaying
+        // Asked for when a recording is opened, which is the only time it is worth downloading.
+        transcript = null
+        scope.launch {
+            loadingTranscript = true
+            val found = Transcripts.of(context, recording.name)
+            // A different recording may have been opened while this one was being fetched.
+            if (selected?.name == recording.name) transcript = found
+            loadingTranscript = false
+        }
     }
 
     fun close() {
         player.stop()
         selected = null
+        transcript = null
         playing = false
         position = 0
         duration = 0
@@ -157,6 +171,8 @@ fun RecordingsTab(
                     position = millis
                 },
                 onClose = ::close,
+                transcript = transcript,
+                loadingTranscript = loadingTranscript,
             )
         }
     }

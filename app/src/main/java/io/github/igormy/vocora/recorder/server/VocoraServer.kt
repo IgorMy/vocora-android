@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.igormy.vocora.recorder.store.RecordingEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -53,6 +54,28 @@ object VocoraServer {
                 .execute()
                 .use { it.isSuccessful }
         }.getOrDefault(false)
+    }
+
+    /**
+     * An authenticated GET, answered with the body or with null if anything at all went wrong.
+     *
+     * Query values go through OkHttp rather than through string building: a date carries a `+` for
+     * its offset, and a `+` written into a query means a space by the time the server reads it.
+     */
+    fun get(context: Context, path: String, params: Map<String, String> = emptyMap()): String? {
+        val url = ServerSettings.url(context) ?: return null
+        val token = ServerSettings.token(context) ?: return null
+        val built = ("$url$path").toHttpUrlOrNull()?.newBuilder()?.apply {
+            params.forEach { (name, value) -> addQueryParameter(name, value) }
+        }?.build() ?: return null
+
+        return runCatching {
+            client.newCall(
+                Request.Builder().url(built).header("Authorization", "Bearer $token").build(),
+            ).execute().use { response ->
+                if (response.isSuccessful) response.body?.string() else null
+            }
+        }.getOrNull()
     }
 
     /** Sends a recording, both sides and the mix, and says whether it is worth trying again. */

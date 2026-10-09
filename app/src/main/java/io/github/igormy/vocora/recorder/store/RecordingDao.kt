@@ -34,6 +34,17 @@ interface RecordingDao {
     @Query("UPDATE recordings SET uploadState = :state WHERE folder = :folder")
     suspend fun setUploadState(folder: String, state: UploadState)
 
+    @Query(
+        "UPDATE recordings SET serverId = :serverId, serverStatus = :status WHERE folder = :folder",
+    )
+    suspend fun setServerState(folder: String, serverId: String, status: String)
+
+    @Query("UPDATE recordings SET transcription = :transcription, segments = :segments WHERE folder = :folder")
+    suspend fun setTranscription(folder: String, transcription: String?, segments: String?)
+
+    @Query("SELECT * FROM recordings WHERE folder = :folder")
+    suspend fun byFolder(folder: String): RecordingEntity?
+
     @Upsert
     suspend fun put(recording: RecordingEntity)
 

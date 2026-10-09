@@ -9,6 +9,7 @@ import io.github.igormy.vocora.recorder.client.RecordingFolder
 import io.github.igormy.vocora.recorder.client.RecordingsFolder
 import io.github.igormy.vocora.recorder.client.RecordingsLibrary
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
+import io.github.igormy.vocora.recorder.logic.RecordingProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -91,6 +92,7 @@ object RecordingIndex {
         durationMillis = durationMillis,
         number = number,
         contact = number?.let { contactOf(context, it) },
+        progress = RecordingProgress.of(uploadState, serverStatus),
     )
 
     private fun contactOf(context: Context, number: String): Contact? = synchronized(contacts) {

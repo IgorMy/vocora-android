@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import io.github.igormy.vocora.recorder.logic.RecordingDay
+import io.github.igormy.vocora.recorder.logic.RecordingProgress
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
 
 /** The file inside a recording folder that holds both sides mixed, which is what gets played. */
@@ -26,6 +27,7 @@ data class Recording(
     val durationMillis: Int,
     val number: String?,
     val contact: Contact?,
+    val progress: RecordingProgress.Shown,
 ) {
     /** Midnight of the day it happened, which is what the list groups by. */
     val day: Long get() = RecordingDay.startOfDay(recordedAt)
@@ -65,6 +67,22 @@ object RecordingsLibrary {
         return children(context, treeUri, rootId)
             .filter { it.isDirectory }
             .mapNotNull { folder -> folderOf(context, treeUri, folder) }
+    }
+
+    /**
+     * What is inside a recording folder, by file name.
+     *
+     * Each side is kept apart as well as mixed, and the server wants all three, so the upload asks
+     * for them by name rather than trusting ids it wrote down before a rename.
+     */
+    fun filesIn(context: Context, folderUri: Uri): Map<String, Uri> {
+        val treeUri = RecordingsFolder.treeUri(context) ?: return emptyMap()
+        val documentId = runCatching { DocumentsContract.getDocumentId(folderUri) }.getOrNull()
+            ?: return emptyMap()
+
+        return children(context, treeUri, documentId)
+            .filterNot { it.isDirectory }
+            .associate { it.name to DocumentsContract.buildDocumentUriUsingTree(treeUri, it.documentId) }
     }
 
     /** Removes a recording, both sides and the mix with it. */

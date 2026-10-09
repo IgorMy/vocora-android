@@ -29,6 +29,7 @@ import io.github.igormy.vocora.recorder.client.PLAYBACK_SPEEDS
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecordingPlayer
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
+import io.github.igormy.vocora.recorder.server.ServerSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -120,6 +121,7 @@ fun RecordingsTab(
                 RecordingsList(
                     recordings = recordings,
                     loading = loading,
+                    showsProgress = ServerSettings.isConfigured(context),
                     selectedName = selected?.name,
                     today = today,
                     onSelect = ::open,

@@ -39,6 +39,7 @@ import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.ContactLookup
 import io.github.igormy.vocora.recorder.client.RecorderStatus
 import io.github.igormy.vocora.recorder.server.ServerSettings
+import io.github.igormy.vocora.recorder.server.UploadQueue
 import io.github.igormy.vocora.recorder.server.VocoraServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -172,11 +173,15 @@ fun SettingsTab(
             onWifiOnlyChange = {
                 wifiOnly = it
                 ServerSettings.setWifiOnly(context, it)
+                // Restarted rather than left alone: a run waiting on mobile data has to be told.
+                UploadQueue.ask(context, restart = true)
             },
             onCheck = {
                 serverAnswer = ServerAnswer.ASKING
                 scope.launch {
                     serverAnswer = if (VocoraServer.isAlive(context)) {
+                        // A working address is the moment to try whatever was waiting for one.
+                        UploadQueue.ask(context, restart = true)
                         ServerAnswer.ALIVE
                     } else {
                         ServerAnswer.SILENT

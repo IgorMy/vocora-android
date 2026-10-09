@@ -2,6 +2,7 @@ package io.github.igormy.vocora.recorder.store
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import io.github.igormy.vocora.recorder.logic.UploadState
 
 /**
  * A recorded call as the index knows it.
@@ -19,4 +20,9 @@ data class RecordingEntity(
     val durationMillis: Int,
     val folderUri: String,
     val mixedUri: String,
+    val uploadState: UploadState = UploadState.PENDING,
+    /** What the server last said it was doing with it: pending, transcribing, done, failed. */
+    val serverStatus: String? = null,
+    /** Kept once downloaded, so opening a recording again does not ask for it twice. */
+    val transcription: String? = null,
 )

@@ -44,6 +44,14 @@
     <string name="blacklist_empty">Nobody is on the list</string>
     <string name="blacklist_remove">Remove from the list</string>
 
+    <string name="progress_not_uploaded">Not uploaded</string>
+    <string name="progress_uploading">Uploading…</string>
+    <string name="progress_uploaded">Uploaded</string>
+    <string name="progress_waiting">Uploaded, waiting</string>
+    <string name="progress_transcribing">Transcribing</string>
+    <string name="progress_done">Transcribed</string>
+    <string name="progress_failed">Upload failed</string>
+
     <string name="server_title">Server</string>
     <string name="server_url">Server address</string>
     <string name="server_url_hint">http://192.168.1.10:8000</string>

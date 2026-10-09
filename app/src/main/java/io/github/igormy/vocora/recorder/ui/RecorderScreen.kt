@@ -33,6 +33,7 @@ import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecorderStatus
 import io.github.igormy.vocora.recorder.client.RecordingsFolder
+import io.github.igormy.vocora.recorder.server.UploadQueue
 import io.github.igormy.vocora.recorder.store.RecordingIndex
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -70,6 +71,9 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
             reconciling = true
             RecordingIndex.reconcile(context)
             reconciling = false
+            // Asked once the disk has been looked at, so calls recorded while the app was closed
+            // are already rows by the time the queue reads them.
+            UploadQueue.ask(context)
         }
         scope.launch {
             runCatching { CallRecorder.syncWithPreference(context) }

@@ -30,6 +30,7 @@ import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.logic.PlaybackTime
 import io.github.igormy.vocora.recorder.logic.RecordingDay
 import io.github.igormy.vocora.recorder.logic.RecordingLabel
+import io.github.igormy.vocora.recorder.logic.RecordingProgress
 
 private val SPINNER_SIZE = 20.dp
 
@@ -38,6 +39,7 @@ private val SPINNER_SIZE = 20.dp
 fun RecordingsList(
     recordings: List<Recording>,
     loading: Boolean,
+    showsProgress: Boolean,
     selectedName: String?,
     today: Long,
     onSelect: (Recording) -> Unit,
@@ -82,6 +84,7 @@ fun RecordingsList(
             items(ofThatDay, key = { it.folderUri.toString() }) { recording ->
                 RecordingRow(
                     recording = recording,
+                    showsProgress = showsProgress,
                     selected = recording.name == selectedName,
                     onSelect = { onSelect(recording) },
                     onDelete = { onDelete(recording) },
@@ -104,6 +107,7 @@ private fun DayHeader(label: String) {
 @Composable
 private fun RecordingRow(
     recording: Recording,
+    showsProgress: Boolean,
     selected: Boolean,
     onSelect: () -> Unit,
     onDelete: () -> Unit,
@@ -153,6 +157,19 @@ private fun RecordingRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Silent until there is a server: without one, every recording would say the same
+                // thing on every line, which is not news.
+                if (showsProgress) {
+                    Text(
+                        text = stringResource(labelOf(recording.progress)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (recording.progress == RecordingProgress.Shown.FAILED) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
             }
 
             IconButton(onClick = onDelete) {
@@ -164,6 +181,16 @@ private fun RecordingRow(
             }
         }
     }
+}
+
+private fun labelOf(progress: RecordingProgress.Shown): Int = when (progress) {
+    RecordingProgress.Shown.NOT_UPLOADED -> R.string.progress_not_uploaded
+    RecordingProgress.Shown.UPLOADING -> R.string.progress_uploading
+    RecordingProgress.Shown.UPLOADED -> R.string.progress_uploaded
+    RecordingProgress.Shown.WAITING -> R.string.progress_waiting
+    RecordingProgress.Shown.TRANSCRIBING -> R.string.progress_transcribing
+    RecordingProgress.Shown.DONE -> R.string.progress_done
+    RecordingProgress.Shown.FAILED -> R.string.progress_failed
 }
 
 private fun subtitleOf(recording: Recording): String {

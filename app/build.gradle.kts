@@ -18,8 +18,8 @@ android {
         applicationId = "io.github.igormy.vocora"
         minSdk = 29
         targetSdk = 37
-        versionCode = 11
-        versionName = "0.5.4"
+        versionCode = 12
+        versionName = "0.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,6 +1,7 @@
 package io.github.igormy.vocora.recorder.server
 
 import android.content.Context
+import android.util.Log
 import io.github.igormy.vocora.recorder.store.RecordingEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -8,6 +9,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "VocoraUpload"
 
 /** What came of trying to send a recording. */
 enum class UploadOutcome {
@@ -117,8 +120,21 @@ object VocoraServer {
                     response.code == 429 -> UploadOutcome.PACED
                     response.code >= 500 -> UploadOutcome.LATER
                     else -> UploadOutcome.REFUSED
+                }.also {
+                    // Said out loud: an upload that quietly goes back to waiting is a upload
+                    // nobody can explain, and the body is where the server says what it disliked.
+                    if (it != UploadOutcome.DONE) {
+                        Log.w(
+                            TAG,
+                            "${recording.folder}: $it, HTTP ${response.code} " +
+                                response.body?.string()?.take(300).orEmpty(),
+                        )
+                    }
                 }
             }
-        }.getOrDefault(UploadOutcome.LATER)
+        }.getOrElse {
+            Log.w(TAG, "${recording.folder}: ${it.javaClass.simpleName}: ${it.message}")
+            UploadOutcome.LATER
+        }
     }
 }

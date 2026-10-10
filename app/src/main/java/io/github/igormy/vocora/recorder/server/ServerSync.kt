@@ -20,6 +20,8 @@ data class ServerRecording(
     val direction: String,
     val status: String,
     val updated_at: String,
+    /** Set when the server deleted it. Asked for on purpose: a deletion is an answer too. */
+    val deleted_at: String? = null,
 )
 
 @Serializable
@@ -92,11 +94,58 @@ object ServerSync {
         newest?.let { ServerSettings.setSyncedAt(context, it) }
     }
 
-    private fun fetch(context: Context, since: String?, offset: Int): ServerPage? {
+    /**
+     * Puts the queue back in charge of whatever the server turns out not to have.
+     *
+     * The app cannot tell on its own that a recording it sent is no longer there: a server can lose
+     * its files, be rebuilt, or be replaced, and nothing about that reaches the phone. So the whole
+     * listing is read, not just what changed, and anything the server has never heard of goes back
+     * into the queue.
+     *
+     * Deletions are respected. The listing is asked for with the deleted ones included precisely so
+     * that a recording deleted on purpose can be told apart from one that went missing: re-uploading
+     * brings a deleted recording back, and doing that on every open would make deleting useless.
+     */
+    suspend fun reconcile(context: Context) = withContext(Dispatchers.IO) {
+        if (!ServerSettings.isConfigured(context)) return@withContext
+
+        val recordings = VocoraDatabase.of(context).recordings()
+        val known = recordings.all().associateBy { keyOf(it) }
+        if (known.isEmpty()) return@withContext
+
+        val theirs = mutableMapOf<Key, ServerRecording>()
+        var offset = 0
+        while (true) {
+            // Without an answer there is nothing to compare against, and assuming the server has
+            // nothing would put every recording back in the queue over a moment without network.
+            val page = fetch(context, since = null, offset = offset, withDeleted = true)
+                ?: return@withContext
+            page.items.forEach { theirs[keyOf(it)] = it }
+            offset = page.next_offset ?: break
+        }
+
+        known.forEach { (key, recording) ->
+            val item = theirs[key]
+            when {
+                item == null -> recordings.setMissingOnServer(recording.folder)
+                // Deleted over there on purpose: left exactly as it is, and never sent again.
+                item.deleted_at != null -> Unit
+                else -> recordings.setServerState(recording.folder, item.id, item.status)
+            }
+        }
+    }
+
+    private fun fetch(
+        context: Context,
+        since: String?,
+        offset: Int,
+        withDeleted: Boolean = false,
+    ): ServerPage? {
         val params = buildMap {
             put("limit", PAGE.toString())
             put("offset", offset.toString())
             since?.let { put("updated_since", it) }
+            if (withDeleted) put("deleted", "include")
         }
         val body = VocoraServer.get(context, "/recording", params) ?: return null
         return runCatching { json.decodeFromString<ServerPage>(body) }.getOrNull()

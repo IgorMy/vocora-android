@@ -5,9 +5,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -33,6 +35,8 @@ import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.Recording
 import io.github.igormy.vocora.recorder.client.RecorderStatus
 import io.github.igormy.vocora.recorder.client.RecordingsFolder
+import io.github.igormy.vocora.recorder.server.ServerSettings
+import io.github.igormy.vocora.recorder.server.ServerSync
 import io.github.igormy.vocora.recorder.server.UploadQueue
 import io.github.igormy.vocora.recorder.store.RecordingIndex
 import kotlinx.coroutines.launch
@@ -58,6 +62,7 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
     var status by remember { mutableStateOf(RecorderStatus()) }
     var recordings by remember { mutableStateOf<List<Recording>?>(null) }
     var reconciling by remember { mutableStateOf(true) }
+    var autoSync by remember { mutableStateOf(ServerSettings.autoSync(context)) }
     var error by remember { mutableStateOf<String?>(null) }
 
     // The database says what there is as soon as it is asked, and keeps saying it: every change
@@ -71,8 +76,10 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
             reconciling = true
             RecordingIndex.reconcile(context)
             reconciling = false
-            // Asked once the disk has been looked at, so calls recorded while the app was closed
-            // are already rows by the time the queue reads them.
+            if (!ServerSettings.autoSync(context)) return@launch
+            // The server is asked what it actually has before the queue is asked to do anything,
+            // so a recording that is no longer over there is waiting again by the time it runs.
+            ServerSync.reconcile(context)
             UploadQueue.ask(context)
         }
         scope.launch {
@@ -115,17 +122,40 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTab) {
-            Tab(
-                selected = selectedTab == TAB_RECORDINGS,
-                onClick = { selectedTab = TAB_RECORDINGS },
-                text = { Text(stringResource(R.string.tab_recordings)) },
-            )
-            Tab(
-                selected = selectedTab == TAB_SETTINGS,
-                onClick = { selectedTab = TAB_SETTINGS },
-                text = { Text(stringResource(R.string.tab_settings)) },
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TabRow(selectedTabIndex = selectedTab, modifier = Modifier.weight(1f)) {
+                Tab(
+                    selected = selectedTab == TAB_RECORDINGS,
+                    onClick = { selectedTab = TAB_RECORDINGS },
+                    text = { Text(stringResource(R.string.tab_recordings)) },
+                )
+                Tab(
+                    selected = selectedTab == TAB_SETTINGS,
+                    onClick = { selectedTab = TAB_SETTINGS },
+                    text = { Text(stringResource(R.string.tab_settings)) },
+                )
+            }
+            // Up here rather than in Settings because it is the switch most worth reaching: it
+            // decides whether the app talks to the server on its own at all.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 8.dp, end = 12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.auto_sync),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Checkbox(
+                    checked = autoSync,
+                    onCheckedChange = { wanted ->
+                        autoSync = wanted
+                        ServerSettings.setAutoSync(context, wanted)
+                        // Turning it on is a reason to catch up right away. Turning it off means
+                        // stop, including whatever is being sent at this moment.
+                        if (wanted) refresh() else UploadQueue.stop(context)
+                    },
+                )
+            }
         }
 
         val listed = recordings
@@ -140,6 +170,10 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
                     // Removed here as well so the list has already lost it by the time the sheet
                     // closes, instead of waiting for the database to say so.
                     recordings = recordings?.filterNot { it.name == recording.name }
+                },
+                onSendAgain = { recording ->
+                    RecordingIndex.sendAgain(context, recording)
+                    UploadQueue.ask(context, restart = true)
                 },
                 onContactsGranted = {
                     RecordingIndex.forgetContacts()

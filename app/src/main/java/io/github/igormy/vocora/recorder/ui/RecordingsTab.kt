@@ -45,6 +45,7 @@ fun RecordingsTab(
     loading: Boolean,
     needsFolderAgain: Boolean,
     onDelete: suspend (Recording) -> Unit,
+    onSendAgain: suspend (Recording) -> Unit,
     onContactsGranted: suspend () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,6 +141,7 @@ fun RecordingsTab(
                     today = today,
                     onSelect = ::open,
                     onDelete = { pendingDelete = it },
+                    onSendAgain = { recording -> scope.launch { onSendAgain(recording) } },
                 )
             }
         }

@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,7 @@ fun RecordingsList(
     today: Long,
     onSelect: (Recording) -> Unit,
     onDelete: (Recording) -> Unit,
+    onSendAgain: (Recording) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Reading durations and matching numbers against the address book takes a moment, and saying
@@ -88,6 +91,7 @@ fun RecordingsList(
                     selected = recording.name == selectedName,
                     onSelect = { onSelect(recording) },
                     onDelete = { onDelete(recording) },
+                    onSendAgain = { onSendAgain(recording) },
                 )
             }
         }
@@ -111,6 +115,7 @@ private fun RecordingRow(
     selected: Boolean,
     onSelect: () -> Unit,
     onDelete: () -> Unit,
+    onSendAgain: () -> Unit,
 ) {
     Surface(
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
@@ -168,6 +173,21 @@ private fun RecordingRow(
                         } else {
                             MaterialTheme.colorScheme.primary
                         },
+                    )
+                }
+            }
+
+            // Only offered when there is a server to send it to, like the line above it.
+            if (showsProgress) {
+                val label = stringResource(R.string.send_again)
+                IconButton(
+                    onClick = onSendAgain,
+                    modifier = Modifier.semantics { contentDescription = label },
+                ) {
+                    Text(
+                        text = "\u21BB",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }

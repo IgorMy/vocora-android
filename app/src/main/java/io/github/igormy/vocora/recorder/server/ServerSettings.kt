@@ -7,6 +7,7 @@ private const val KEY_URL = "server_url"
 private const val KEY_TOKEN = "server_token"
 private const val KEY_API_VERSION = "server_api_version"
 private const val KEY_WIFI_ONLY = "server_wifi_only"
+private const val KEY_AUTO_SYNC = "server_auto_sync"
 private const val KEY_SYNCED_AT = "server_synced_at"
 private const val KEY_SYNCED_URL = "server_synced_url"
 
@@ -47,6 +48,21 @@ object ServerSettings {
 
     fun token(context: Context): String? =
         preferences(context).getString(KEY_TOKEN, null)?.trim()?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Whether the app keeps itself in step with the server without being asked.
+     *
+     * On, it checks the whole listing when it opens and queues whatever the server turns out not to
+     * have, and it queues each call as it ends. Off, nothing goes anywhere until it is asked to,
+     * recording by recording.
+     *
+     * Off by default. Sending recordings somewhere is not something to start doing on its own.
+     */
+    fun autoSync(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_AUTO_SYNC, false)
+
+    fun setAutoSync(context: Context, autoSync: Boolean) =
+        preferences(context).edit().putBoolean(KEY_AUTO_SYNC, autoSync).apply()
 
     /** Three files of a ten minute call are around 15 MB, so mobile data is opt in. */
     fun wifiOnly(context: Context): Boolean =

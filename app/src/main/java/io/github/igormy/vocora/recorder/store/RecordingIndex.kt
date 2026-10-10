@@ -71,6 +71,11 @@ object RecordingIndex {
         VocoraDatabase.of(context).recordings().forget(listOf(recording.name))
     }
 
+    /** Puts a recording back in the queue, whatever the app believed about it. */
+    suspend fun sendAgain(context: Context, recording: Recording) = withContext(Dispatchers.IO) {
+        VocoraDatabase.of(context).recordings().sendAgain(recording.name)
+    }
+
     /** Drops the remembered contacts so the next read asks the address book again. */
     fun forgetContacts() = synchronized(contacts) { contacts.clear() }
 

@@ -24,6 +24,11 @@ object UploadQueue {
      * [restart] replaces a run that is already going, which is what a change of settings needs:
      * a new address or a switch to Wi-Fi only should not wait for the old run to finish.
      */
+    /** Drops whatever is queued or running. What was already sent stays sent. */
+    fun stop(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+    }
+
     fun ask(context: Context, restart: Boolean = false) {
         val work = WorkManager.getInstance(context)
         // Without an address and a token there is nothing to try, and trying would only fail.

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import io.github.igormy.vocora.recorder.server.ServerSettings
 import io.github.igormy.vocora.recorder.server.UploadQueue
 import io.github.igormy.vocora.recorder.store.RecordingIndex
 import kotlinx.coroutines.CoroutineScope
@@ -27,8 +28,9 @@ class CallEndedReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // The recording is new, so it has no row yet and the queue would find nothing.
+                // The row is written either way: that is the app's own index, not the server's.
                 RecordingIndex.reconcile(app)
-                UploadQueue.ask(app)
+                if (ServerSettings.autoSync(app)) UploadQueue.ask(app)
             } catch (e: Exception) {
                 Log.w(TAG, "could not queue the recording: ${e.javaClass.simpleName}: ${e.message}")
             } finally {

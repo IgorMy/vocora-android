@@ -12,6 +12,9 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "VocoraUpload"
 
+/** `{"detail": "..."}` is how the server words a refusal, whatever the refusal is about. */
+private val DETAIL = Regex("\"detail\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+
 /** What came of trying to send a recording. */
 enum class UploadOutcome {
     /** The server has it, whether it had it already or not. */
@@ -120,21 +123,34 @@ object VocoraServer {
                     response.code == 429 -> UploadOutcome.PACED
                     response.code >= 500 -> UploadOutcome.LATER
                     else -> UploadOutcome.REFUSED
-                }.also {
-                    // Said out loud: an upload that quietly goes back to waiting is a upload
+                }.also { outcome ->
+                    // Said out loud: an upload that quietly goes back to waiting is an upload
                     // nobody can explain, and the body is where the server says what it disliked.
-                    if (it != UploadOutcome.DONE) {
-                        Log.w(
-                            TAG,
-                            "${recording.folder}: $it, HTTP ${response.code} " +
-                                response.body?.string()?.take(300).orEmpty(),
-                        )
+                    if (outcome == UploadOutcome.DONE) return@also
+                    val said = complaintIn(response.body?.string())
+                    Log.w(TAG, "${recording.folder}: $outcome, HTTP ${response.code} $said")
+                    // Pacing is the server working as intended, and not worth interrupting anybody.
+                    if (outcome != UploadOutcome.PACED) {
+                        UploadReports.report("HTTP ${response.code} · $said")
                     }
                 }
             }
         }.getOrElse {
             Log.w(TAG, "${recording.folder}: ${it.javaClass.simpleName}: ${it.message}")
+            UploadReports.report("${it.javaClass.simpleName}: ${it.message}")
             UploadOutcome.LATER
         }
+    }
+
+    /**
+     * What the server actually complained about.
+     *
+     * It answers errors as `{"detail": "..."}`, and the detail is the whole of the news; the rest is
+     * JSON punctuation that would only crowd out the part worth reading.
+     */
+    private fun complaintIn(body: String?): String {
+        val said = body?.takeIf { it.isNotBlank() } ?: return "no answer"
+        val detail = DETAIL.find(said)?.groupValues?.get(1)?.replace("\\\"", "\"")
+        return (detail ?: said).take(200)
     }
 }

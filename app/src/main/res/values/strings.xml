@@ -49,6 +49,8 @@
     <string name="transcript_loading">Fetching the transcription…</string>
 
     <string name="progress_not_uploaded">Not uploaded</string>
+    <string name="upload_failed">Could not upload: %1$s</string>
+
     <string name="progress_queued">Waiting to upload</string>
     <string name="progress_uploading">Uploading…</string>
     <string name="progress_uploaded">Uploaded</string>

@@ -23,17 +23,25 @@ interface RecordingDao {
     /**
      * What the queue has to send.
      *
-     * Anything left mid flight counts as asked for: a run that was cut short says nothing about
-     * whether the server took it, and sending it again is answered with the same recording.
-     *
      * [includeWaiting] brings in the ones nobody asked for, which is what the automatic sync is.
      * Without it, pressing send on one recording would send every other one that is not up there.
      */
     @Query(
-        "SELECT * FROM recordings WHERE uploadState IN ('QUEUED', 'UPLOADING') " +
+        "SELECT * FROM recordings WHERE uploadState = 'QUEUED' " +
             "OR (:includeWaiting AND uploadState = 'PENDING') ORDER BY recordedAt",
     )
     suspend fun toUpload(includeWaiting: Boolean): List<RecordingEntity>
+
+    /**
+     * Settles whatever a run left mid flight, before the next one starts.
+     *
+     * A run can be cut off between saying it is sending something and saying how that went, and the
+     * row is then stuck saying it is on its way. It goes back to waiting, asked for or not depending
+     * on whether anything is asking: sending it again costs nothing, the server answers the same
+     * recording either way, but it should not jump ahead of the one somebody actually pressed.
+     */
+    @Query("UPDATE recordings SET uploadState = :state WHERE uploadState = 'UPLOADING'")
+    suspend fun settleInterrupted(state: UploadState)
 
     @Query("UPDATE recordings SET uploadState = :state WHERE folder = :folder")
     suspend fun setUploadState(folder: String, state: UploadState)

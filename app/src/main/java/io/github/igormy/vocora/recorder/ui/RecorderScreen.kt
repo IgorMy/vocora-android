@@ -1,6 +1,7 @@
 package io.github.igormy.vocora.recorder.ui
 
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +30,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import io.github.igormy.vocora.R
 import io.github.igormy.vocora.recorder.client.CallRecorder
 import io.github.igormy.vocora.recorder.client.Recording
@@ -38,6 +42,7 @@ import io.github.igormy.vocora.recorder.client.RecordingsFolder
 import io.github.igormy.vocora.recorder.server.ServerSettings
 import io.github.igormy.vocora.recorder.server.ServerSync
 import io.github.igormy.vocora.recorder.server.UploadQueue
+import io.github.igormy.vocora.recorder.server.UploadReports
 import io.github.igormy.vocora.recorder.store.RecordingIndex
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -69,6 +74,21 @@ fun RecorderScreen(modifier: Modifier = Modifier) {
     // made here comes back through this, so nothing has to re-read the list by hand.
     LaunchedEffect(Unit) {
         RecordingIndex.stream(context).collect { recordings = it }
+    }
+
+    // Only while the app is in front: a toast nobody is looking at is a toast wasted, and what the
+    // server said a while ago may no longer be what it would say now.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(Unit) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            UploadReports.failures.collect { said ->
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.upload_failed, said),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
     }
 
     fun refresh() {

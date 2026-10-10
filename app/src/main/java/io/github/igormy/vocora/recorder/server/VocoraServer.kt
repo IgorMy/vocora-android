@@ -17,7 +17,10 @@ enum class UploadOutcome {
     /** The server said no in a way that saying it again would not change. */
     REFUSED,
 
-    /** Nobody answered, or the answer was "not now". Worth trying later. */
+    /** Too fast. The server is fine, it just wants the next one in a moment. */
+    PACED,
+
+    /** Nobody answered, or the server is in no state to take it. Worth trying later. */
     LATER,
 }
 
@@ -110,8 +113,9 @@ object VocoraServer {
                 when {
                     // 201 created, 200 it was already there with the same content. Both are done.
                     response.isSuccessful -> UploadOutcome.DONE
-                    // Ten uploads a minute is all the server takes, and it may simply be down.
-                    response.code == 429 || response.code >= 500 -> UploadOutcome.LATER
+                    // Ten a minute is all the server takes; being told so is not a failure.
+                    response.code == 429 -> UploadOutcome.PACED
+                    response.code >= 500 -> UploadOutcome.LATER
                     else -> UploadOutcome.REFUSED
                 }
             }

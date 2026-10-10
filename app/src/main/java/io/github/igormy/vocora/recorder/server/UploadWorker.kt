@@ -46,7 +46,8 @@ class UploadWorker(
         val startedAt = SystemClock.elapsedRealtime()
         val recordings = VocoraDatabase.of(context).recordings()
 
-        for (recording in recordings.toUpload()) {
+        // Left alone unless asked for: with the automatic sync off, only what was pressed goes up.
+        for (recording in recordings.toUpload(ServerSettings.autoSync(context))) {
             if (SystemClock.elapsedRealtime() - startedAt > BUDGET_MILLIS) return Result.retry()
             recordings.setUploadState(recording.folder, UploadState.UPLOADING)
 
@@ -68,7 +69,8 @@ class UploadWorker(
                 // Out of time rather than out of luck, or the server is not there. Either way it
                 // goes back to waiting and the rest of the queue is somebody else's turn.
                 UploadOutcome.PACED, UploadOutcome.LATER -> {
-                    recordings.setUploadState(recording.folder, UploadState.PENDING)
+                    // Still asked for, so the next run picks it up whatever the switch says.
+                    recordings.setUploadState(recording.folder, UploadState.QUEUED)
                     return Result.retry()
                 }
             }

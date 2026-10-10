@@ -13,6 +13,11 @@ class RecordingProgressTest {
     }
 
     @Test
+    fun `being asked for is worth saying apart from nobody having asked`() {
+        assertEquals(Shown.QUEUED, RecordingProgress.of(UploadState.QUEUED, null))
+    }
+
+    @Test
     fun `a refused upload stays refused whatever the server last said`() {
         assertEquals(Shown.FAILED, RecordingProgress.of(UploadState.FAILED, "done"))
     }

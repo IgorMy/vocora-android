@@ -2,8 +2,16 @@ package io.github.igormy.vocora.recorder.logic
 
 /** How far a recording has got towards being sent. */
 enum class UploadState {
-    /** Waiting its turn, which is where every recording starts. */
+    /**
+     * Not on the server, and nobody has asked for it to be.
+     *
+     * Only the automatic sync picks these up. Asked for by hand, a recording goes to [QUEUED]
+     * instead, so that sending one does not send every other one that happens to be waiting.
+     */
     PENDING,
+
+    /** Asked for, by hand or by the automatic sync, and waiting its turn. */
+    QUEUED,
 
     /** Being sent right now, or left this way by a run that did not finish. */
     UPLOADING,
@@ -25,6 +33,9 @@ object RecordingProgress {
 
     enum class Shown {
         NOT_UPLOADED,
+
+        /** Asked for and waiting, which is worth saying apart from nobody having asked. */
+        QUEUED,
         UPLOADING,
 
         /** Sent, but the server has not been asked how it is going yet. */
@@ -39,6 +50,7 @@ object RecordingProgress {
 
     fun of(uploadState: UploadState, serverStatus: String?): Shown = when (uploadState) {
         UploadState.PENDING -> Shown.NOT_UPLOADED
+        UploadState.QUEUED -> Shown.QUEUED
         UploadState.UPLOADING -> Shown.UPLOADING
         UploadState.FAILED -> Shown.FAILED
         UploadState.UPLOADED -> when (serverStatus) {

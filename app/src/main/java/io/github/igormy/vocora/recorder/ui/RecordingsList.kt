@@ -205,6 +205,7 @@ private fun RecordingRow(
 
 private fun labelOf(progress: RecordingProgress.Shown): Int = when (progress) {
     RecordingProgress.Shown.NOT_UPLOADED -> R.string.progress_not_uploaded
+    RecordingProgress.Shown.QUEUED -> R.string.progress_queued
     RecordingProgress.Shown.UPLOADING -> R.string.progress_uploading
     RecordingProgress.Shown.UPLOADED -> R.string.progress_uploaded
     RecordingProgress.Shown.WAITING -> R.string.progress_waiting

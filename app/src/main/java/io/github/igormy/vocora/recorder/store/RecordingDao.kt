@@ -21,15 +21,19 @@ interface RecordingDao {
     suspend fun folders(): List<String>
 
     /**
-     * What the queue has left to send.
+     * What the queue has to send.
      *
-     * Anything left mid flight counts as waiting: a run that was cut short says nothing about
+     * Anything left mid flight counts as asked for: a run that was cut short says nothing about
      * whether the server took it, and sending it again is answered with the same recording.
+     *
+     * [includeWaiting] brings in the ones nobody asked for, which is what the automatic sync is.
+     * Without it, pressing send on one recording would send every other one that is not up there.
      */
     @Query(
-        "SELECT * FROM recordings WHERE uploadState IN ('PENDING', 'UPLOADING') ORDER BY recordedAt",
+        "SELECT * FROM recordings WHERE uploadState IN ('QUEUED', 'UPLOADING') " +
+            "OR (:includeWaiting AND uploadState = 'PENDING') ORDER BY recordedAt",
     )
-    suspend fun toUpload(): List<RecordingEntity>
+    suspend fun toUpload(includeWaiting: Boolean): List<RecordingEntity>
 
     @Query("UPDATE recordings SET uploadState = :state WHERE folder = :folder")
     suspend fun setUploadState(folder: String, state: UploadState)
@@ -56,8 +60,8 @@ interface RecordingDao {
     )
     suspend fun setMissingOnServer(folder: String)
 
-    /** Asks for a recording to be sent again, keeping whatever is already known about it. */
-    @Query("UPDATE recordings SET uploadState = 'PENDING' WHERE folder = :folder")
+    /** Asks for one recording to be sent, keeping whatever is already known about it. */
+    @Query("UPDATE recordings SET uploadState = 'QUEUED' WHERE folder = :folder")
     suspend fun sendAgain(folder: String)
 
     /** Drops everything a server said, which is what a different server makes of all of it. */
